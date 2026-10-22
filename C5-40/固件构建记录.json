@@ -11,11 +11,11 @@
       "text": 15688,
       "data": 96,
       "bss": 2008,
-      "elf": "tmp/c5_40_20261020/sdk_ref/examples/hal/fdcan/loopback/NUCLEO-C542RC/cmake/build/debug_GCC_NUCLEO-C542RC/hal_fdcan_loopback.elf",
+      "elf": "<作者工作区>/sdk_ref/examples/hal/fdcan/loopback/NUCLEO-C542RC/cmake/build/debug_GCC_NUCLEO-C542RC/hal_fdcan_loopback.elf",
       "elf_sha256": "a9702eb3137e4b81f99122ff0cb5c6b744f3a787f18e8315f812712ba1597ca2",
       "compiler_warnings": 0,
       "app_process_linked": true,
-      "build_log": "tmp/c5_40_20261020/logs/sdk_ref_debug_build.log",
+      "build_log": "<作者工作区>/logs/sdk_ref_debug_build.log",
       "hardware_tested": false
     },
     {
@@ -24,11 +24,11 @@
       "text": 8480,
       "data": 96,
       "bss": 2008,
-      "elf": "tmp/c5_40_20261020/sdk_ref/examples/hal/fdcan/loopback/NUCLEO-C542RC/cmake/build/release_GCC_NUCLEO-C542RC/hal_fdcan_loopback.elf",
+      "elf": "<作者工作区>/sdk_ref/examples/hal/fdcan/loopback/NUCLEO-C542RC/cmake/build/release_GCC_NUCLEO-C542RC/hal_fdcan_loopback.elf",
       "elf_sha256": "abf4440f64e6fcd0037546752bc7ba6507960b2968bd21b80901528388a15dae",
       "compiler_warnings": 0,
       "app_process_linked": true,
-      "build_log": "tmp/c5_40_20261020/logs/sdk_ref_release_build.log",
+      "build_log": "<作者工作区>/logs/sdk_ref_release_build.log",
       "hardware_tested": false
     },
     {
@@ -37,11 +37,11 @@
       "text": 23488,
       "data": 104,
       "bss": 2304,
-      "elf": "tmp/c5_40_20261020/sdk_mod/examples/hal/fdcan/loopback/NUCLEO-C542RC/cmake/build/debug_GCC_NUCLEO-C542RC/hal_fdcan_loopback.elf",
+      "elf": "<作者工作区>/sdk_mod/examples/hal/fdcan/loopback/NUCLEO-C542RC/cmake/build/debug_GCC_NUCLEO-C542RC/hal_fdcan_loopback.elf",
       "elf_sha256": "dd9df9b9f91697ad534afdc21a50a1238c609c2cd37985536e1b1879b75d219a",
       "compiler_warnings": 0,
       "app_process_linked": true,
-      "build_log": "tmp/c5_40_20261020/logs/sdk_mod_debug_build.log",
+      "build_log": "<作者工作区>/logs/sdk_mod_debug_build.log",
       "hardware_tested": false
     },
     {
@@ -50,11 +50,11 @@
       "text": 14448,
       "data": 104,
       "bss": 2304,
-      "elf": "tmp/c5_40_20261020/sdk_mod/examples/hal/fdcan/loopback/NUCLEO-C542RC/cmake/build/release_GCC_NUCLEO-C542RC/hal_fdcan_loopback.elf",
+      "elf": "<作者工作区>/sdk_mod/examples/hal/fdcan/loopback/NUCLEO-C542RC/cmake/build/release_GCC_NUCLEO-C542RC/hal_fdcan_loopback.elf",
       "elf_sha256": "fec91a9773eb1f201effdb9e5e9a58fed7c1bc30567b6d36f566f6859a5ba1e9",
       "compiler_warnings": 0,
       "app_process_linked": true,
-      "build_log": "tmp/c5_40_20261020/logs/sdk_mod_release_build.log",
+      "build_log": "<作者工作区>/logs/sdk_mod_release_build.log",
       "hardware_tested": false
     }
   ],

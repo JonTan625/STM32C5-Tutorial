@@ -10,11 +10,11 @@
       "text": 38176,
       "data": 248,
       "bss": 14088,
-      "elf": "tmp/c5_42_20261020/sdk_ref/examples/middleware/usbx/device_hid_mouse_no_os/NUCLEO-C542RC/cmake/build/debug_GCC_NUCLEO-C542RC/usbx_device_hid_mouse_no_os.elf",
+      "elf": "<作者工作区>/sdk_ref/examples/middleware/usbx/device_hid_mouse_no_os/NUCLEO-C542RC/cmake/build/debug_GCC_NUCLEO-C542RC/usbx_device_hid_mouse_no_os.elf",
       "elf_sha256": "35f5a621d522151d0636017ded5202fc97e1a87718e06d943e3a34939fa3cb8c",
       "compiler_warnings": 0,
       "hardware_tested": false,
-      "build_log": "tmp/c5_42_20261020/logs/sdk_ref_debug_build.log"
+      "build_log": "<作者工作区>/logs/sdk_ref_debug_build.log"
     },
     {
       "tree": "sdk_ref",
@@ -22,11 +22,11 @@
       "text": 18632,
       "data": 240,
       "bss": 14056,
-      "elf": "tmp/c5_42_20261020/sdk_ref/examples/middleware/usbx/device_hid_mouse_no_os/NUCLEO-C542RC/cmake/build/release_GCC_NUCLEO-C542RC/usbx_device_hid_mouse_no_os.elf",
+      "elf": "<作者工作区>/sdk_ref/examples/middleware/usbx/device_hid_mouse_no_os/NUCLEO-C542RC/cmake/build/release_GCC_NUCLEO-C542RC/usbx_device_hid_mouse_no_os.elf",
       "elf_sha256": "4fae815147b609d6be27ec9eaf80dd3d0cc6bd7fd798b8e7aabdd97b53530d87",
       "compiler_warnings": 0,
       "hardware_tested": false,
-      "build_log": "tmp/c5_42_20261020/logs/sdk_ref_release_build.log"
+      "build_log": "<作者工作区>/logs/sdk_ref_release_build.log"
     },
     {
       "tree": "sdk_mod",
@@ -34,11 +34,11 @@
       "text": 38512,
       "data": 248,
       "bss": 14176,
-      "elf": "tmp/c5_42_20261020/sdk_mod/examples/middleware/usbx/device_hid_mouse_no_os/NUCLEO-C542RC/cmake/build/debug_GCC_NUCLEO-C542RC/usbx_device_hid_mouse_no_os.elf",
+      "elf": "<作者工作区>/sdk_mod/examples/middleware/usbx/device_hid_mouse_no_os/NUCLEO-C542RC/cmake/build/debug_GCC_NUCLEO-C542RC/usbx_device_hid_mouse_no_os.elf",
       "elf_sha256": "1330c566a680a1efccbf758cf3143b14ee0f474371ea955f4328a6c3ea5489f2",
       "compiler_warnings": 0,
       "hardware_tested": false,
-      "build_log": "tmp/c5_42_20261020/logs/sdk_mod_debug_build.log"
+      "build_log": "<作者工作区>/logs/sdk_mod_debug_build.log"
     },
     {
       "tree": "sdk_mod",
@@ -46,11 +46,11 @@
       "text": 18808,
       "data": 240,
       "bss": 14152,
-      "elf": "tmp/c5_42_20261020/sdk_mod/examples/middleware/usbx/device_hid_mouse_no_os/NUCLEO-C542RC/cmake/build/release_GCC_NUCLEO-C542RC/usbx_device_hid_mouse_no_os.elf",
+      "elf": "<作者工作区>/sdk_mod/examples/middleware/usbx/device_hid_mouse_no_os/NUCLEO-C542RC/cmake/build/release_GCC_NUCLEO-C542RC/usbx_device_hid_mouse_no_os.elf",
       "elf_sha256": "77a78bb9fe48aacf83aab59429e8b093bbe67158a1ac227823c53bc71f1f4d8e",
       "compiler_warnings": 0,
       "hardware_tested": false,
-      "build_log": "tmp/c5_42_20261020/logs/sdk_mod_release_build.log"
+      "build_log": "<作者工作区>/logs/sdk_mod_release_build.log"
     }
   ],
   "compiled_c_units": 123,
