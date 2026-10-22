@@ -85,6 +85,7 @@ app_status_t app_process(void)
 
   for (i = 0U; i < STEPS; i++)
   {
+    GPIOA->BSRR = PA5_RESET;          /* main.c 每轮会翻转一次 LD1（PA5），先拉低，保证第一个脉冲是上升沿 */
     if (HAL_LPTIM_ResetCounter(pLPTIM) != HAL_OK)
     {
       return EXEC_STATUS_ERROR;
