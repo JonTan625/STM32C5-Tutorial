@@ -46,6 +46,9 @@ int32_t term_init(void)
   {
     return -1;
   }
+  /* HAL2 只在首次调用收发函数时才置 UE（UART_CheckEnabledState），本模块不用 HAL 收发，要自己使能。
+     2026-10-22 在 #48 上板时发现漏了这一步（两篇共用本段）：CR1.UE=0，串口收发全无。 */
+  LL_USART_Enable(USART2);
 
   /* 之后不再调用 HAL UART 收发函数，中断入口由本文件直接处理寄存器（同 #36）。
      生成代码已关闭溢出检测（OVRDIS=1），ORE 分支只是保底。 */

@@ -315,6 +315,10 @@ static void cmd_dump(uint32_t n)
     sent++;
   }
   (void)snprintf(s_out, sizeof(s_out), "OK DUMP %" PRIu32 "\r\n", sent);
+  while (term_tx_free() < (uint32_t)strlen(s_out))   /* 结束行同样要等空位，否则环满时整行被丢（2026-10-22 上板发现） */
+  {
+    health_feed();
+  }
   term_write(s_out);
 }
 

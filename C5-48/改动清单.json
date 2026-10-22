@@ -53,9 +53,9 @@
     {
       "path": "application/example.c",
       "kind": "修改",
-      "sha256": "1b18e0c894b1d039b228ffac0d7810d7c418f984f8a1c9e6920123e5f0c8868f",
+      "sha256": "79dd5ec5a4162dd63c9c68e601017fa3d26c4554f7d0fac78fbcf05c2f82832a",
       "diff": "差异/application__example.c.diff",
-      "added_lines": 409,
+      "added_lines": 413,
       "removed_lines": 138
     },
     {
@@ -109,9 +109,9 @@
     {
       "path": "application/p48_terminal.c",
       "kind": "新增",
-      "sha256": "dfdbfb2ebd14d21e7a63b5a7484a460350a641d7ce4948996bdceda462fd0314",
+      "sha256": "806caa4ca8c9d2d6d1f154b9025f6c3180a32140e7989c0d5bcd665daa05ab0c",
       "diff": "差异/application__p48_terminal.c.diff",
-      "added_lines": 246,
+      "added_lines": 249,
       "removed_lines": 0
     },
     {

@@ -1,5 +1,5 @@
 {
-  "date": "2026-10-21",
+  "date": "2026-10-22",
   "board": "NUCLEO-C542RC / STM32C542RCT6",
   "sdk": "STM32C5 MCU HAL 2.1.0",
   "sdk_zip_sha256": "7bd849539c665226dcb5b10ab3d0858ce59d79ed51f9ed289357b2ba4435bb8b",
@@ -21,12 +21,12 @@
   },
   "firmware": {
     "prod_debug": {
-      "elf_sha256": "2b01c51eea8d8fa6d20ff8907b54b767260c004d96c1f9197bd8495f44f69ab8",
-      "bin_sha256": "7da975c255049f4f9396d12969ed7674ca85f6f4ba3efce6dcc50bc54a27833b",
-      "bin_bytes": 34568,
+      "elf_sha256": "85fba15c690e1ab436af318b3530262d3d121c65078bd4c718a9cfc2658d0fbc",
+      "bin_sha256": "3336f22b647dbafb23f11e10c6f23dfbb3bc08e4bb5edaa264f66198fb5e19eb",
+      "bin_bytes": 34608,
       "flash_origin": "0x08000000",
-      "flash_load_end": "0x8008708",
-      "text": 34472,
+      "flash_load_end": "0x8008730",
+      "text": 34512,
       "data": 96,
       "bss": 3264,
       "test_commands": false,
@@ -40,12 +40,12 @@
       "explicit_buffers_bytes": 962
     },
     "prod_release": {
-      "elf_sha256": "54bf1e8900881c5d5293e7c5b6154fc087696be06ab0dcab4aba767eb05982a0",
-      "bin_sha256": "aabdb086f28b6f6645d0adb71d4dce7c7b79c17de28225c4276964bdd2316928",
-      "bin_bytes": 18960,
+      "elf_sha256": "5f4b548880e4e7b1eedc728183608c184e105665eedd91ba1686e6a9fbb968da",
+      "bin_sha256": "947c41dd9efa44b70599a5acd1ed76de3b0e4b92c0f8971d09ae1cfbdbf13a02",
+      "bin_bytes": 18976,
       "flash_origin": "0x08000000",
-      "flash_load_end": "0x8004a10",
-      "text": 18864,
+      "flash_load_end": "0x8004a20",
+      "text": 18880,
       "data": 96,
       "bss": 3264,
       "test_commands": false,
@@ -59,12 +59,12 @@
       "explicit_buffers_bytes": 962
     },
     "test_debug": {
-      "elf_sha256": "2351731c2074b4158107274ffbf5d4d132afe1294a53c1a0d379b4436f482a2f",
-      "bin_sha256": "53d2d398232a09a2490987d740c03b1ce67927cfbc5050e20948df68fd8e1b30",
-      "bin_bytes": 35336,
+      "elf_sha256": "5814ecaedd9d855b3a0fc28d02aa1fd7e0606c54bddb91ce9073ffd079b6e3d8",
+      "bin_sha256": "714d75bd880cd4db1d483bc0908a320dbfb09089cb43bed438678782e987becc",
+      "bin_bytes": 35376,
       "flash_origin": "0x08000000",
-      "flash_load_end": "0x8008a08",
-      "text": 35240,
+      "flash_load_end": "0x8008a30",
+      "text": 35280,
       "data": 96,
       "bss": 3280,
       "test_commands": true,
@@ -81,12 +81,12 @@
       "explicit_buffers_bytes": 962
     },
     "test_release": {
-      "elf_sha256": "b27e7173fc810405ccfdff4b0e90c1ea42bc39abeb2942dbe6f408330e71e2ab",
-      "bin_sha256": "db57047eaf62452112f6e451ff00ef330d2107d8674a602a0e47093b0ce3f977",
-      "bin_bytes": 19472,
+      "elf_sha256": "eb28e96b5a4ff9818409483346314f2340a951c0f3a5666ceca3ffaf4c4f0b02",
+      "bin_sha256": "e287dfe16bed2477ecf435262d9c36b2da2168040da060b3ab5785ad83292082",
+      "bin_bytes": 19488,
       "flash_origin": "0x08000000",
-      "flash_load_end": "0x8004c10",
-      "text": 19376,
+      "flash_load_end": "0x8004c20",
+      "text": 19392,
       "data": 96,
       "bss": 3272,
       "test_commands": true,
@@ -104,5 +104,6 @@
     }
   },
   "compiler_warnings": 0,
-  "hardware": "未上板：2026-10-21 未检测到 ST-LINK；18 条验收全部待执行"
+  "hardware": "未上板：2026-10-21 未检测到 ST-LINK；18 条验收全部待执行",
+  "revision": "2026-10-22 修正：application/p46_terminal.c 的 term_init() 在 HAL_UART_SetXferDirection() 后加 LL_USART_Enable(USART2)。HAL2 只在首次调用收发函数时才置 UE，本模块不用 HAL 收发，原版 CR1.UE 一直为 0，串口收发全无（#48 上板时发现，#46 共用同一段代码）。四套固件重编 0 警告。"
 }
