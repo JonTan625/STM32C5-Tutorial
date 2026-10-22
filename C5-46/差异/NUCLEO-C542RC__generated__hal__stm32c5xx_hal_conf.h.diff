@@ -1,0 +1,29 @@
+--- official/NUCLEO-C542RC/generated/hal/stm32c5xx_hal_conf.h
++++ c5_46/NUCLEO-C542RC/generated/hal/stm32c5xx_hal_conf.h
+@@ -293,7 +293,7 @@
+ #define USE_HAL_FLASH_USER_DATA                 0U
+ #define USE_HAL_FLASH_GET_LAST_ERRORS           0U
+ /* Use the FLASH program by address feature */
+-#define USE_HAL_FLASH_PROGRAM_BY_ADDR           0U
++#define USE_HAL_FLASH_PROGRAM_BY_ADDR           1U
+ /* Use the FLASH erase by address feature */
+ #define USE_HAL_FLASH_ERASE_BY_ADDR             0U
+ /* Use the FLASH erase by PAGE feature */
+@@ -408,7 +408,7 @@
+   * @{
+   */
+ /* ########################## HAL_IWDG Config ################################### */
+-#define USE_HAL_IWDG_MODULE                     0U
++#define USE_HAL_IWDG_MODULE                     1U
+ #define USE_HAL_IWDG_REGISTER_CALLBACKS         0U
+ #define USE_HAL_IWDG_USER_DATA                  0U
+ /* IWDG time unit configuration */
+@@ -529,7 +529,7 @@
+   * @{
+   */
+ /* ########################## HAL_RTC Config #################################### */
+-#define USE_HAL_RTC_MODULE                      0U
++#define USE_HAL_RTC_MODULE                      1U
+ /**
+   * @}
+   */

@@ -1,0 +1,373 @@
+/**
+  ******************************************************************************
+  * file           : example.c
+  * brief          : OPAMP programmable gain amplifier based on STM32 LL
+  *                  C5 #35：零接线自检。DAC1 通道 1 → COMP1 同相端，扫出翻转码值与迟滞；
+  *                  DAC1 通道 2 → OPAMP1 同相端，PA6 输出由 ADC1 回读，测跟随与 PGA 增益。
+  ******************************************************************************
+  *
+  * Copyright (c) 2026 STMicroelectronics.
+  * All rights reserved.
+  *
+  * This software is licensed under terms that can be found in the LICENSE file
+  * in the root directory of this software component.
+  * If no LICENSE file comes with this software, it is provided AS-IS.
+  *
+  ******************************************************************************
+  */
+
+/* Includes ------------------------------------------------------------------*/
+#include "example.h"
+#include "ll_example.h"
+
+/* Private typedef -----------------------------------------------------------*/
+/* C5 #35：观测量，全部在调试器 Watch 中查看 */
+typedef struct
+{
+  uint32_t valid;        /* 1：本项已测 */
+  uint32_t k_quarter;    /* 反相端 = VrefInt × k_quarter / 4 */
+  uint32_t hyst;         /* HYST[1:0]：0 无、1 低、2 中、3 高 */
+  uint32_t rise;         /* 上扫第一次输出为 1 的码值；0xFFFF = 未翻转 */
+  uint32_t fall;         /* 下扫第一次输出为 0 的码值；0xFFFF = 未翻转 */
+  uint32_t expect;       /* VrefInt ADC 码 × k / 4：DAC 与 ADC 同用 VREF+，按码值比较 */
+  int32_t  diff_lsb;     /* rise - expect */
+  int32_t  hyst_lsb;     /* rise - fall */
+  int32_t  hyst_uv;      /* hyst_lsb 换算成微伏 */
+  uint32_t in_budget;    /* 1：|diff_lsb| ≤ COMP_BUDGET_LSB；迟滞档只观察，恒为 0 */
+} comp_case_t;
+
+typedef struct
+{
+  uint32_t valid;           /* 1：本项已测；DAC 通道 2 不可用时为 0 */
+  uint32_t gain;            /* 1 = 跟随，2/4/8/16 = 同相 PGA */
+  uint32_t code_a;          /* DAC 通道 2 低点码值 */
+  uint32_t code_b;          /* DAC 通道 2 高点码值 */
+  uint32_t adc_a;           /* PA6 16 次平均 */
+  uint32_t adc_b;
+  int32_t  offset_a_lsb;    /* adc_a - gain × code_a，只观察 */
+  int32_t  gain_milli;      /* 两点增益 × 1000 = 1000 × (adc_b - adc_a) / (code_b - code_a) */
+  int32_t  err_permille;    /* 相对标称增益的误差，‰ */
+  int32_t  budget_permille; /* 推算预算，见 OpampBudget() */
+  uint32_t in_budget;
+} opamp_case_t;
+
+/* Private define ------------------------------------------------------------*/
+#define COMP_CASES        (7U)
+#define OPAMP_CASES       (5U)
+#define COMP_STEP_US      (20U)    /* 每码等待：DS15135 p82 缓冲关 tSETTLING 上限 2 us；表 59 tD 中速上限 1.2 us */
+#define SETTLE_US         (1000U)  /* 大跳变后等待 */
+#define COMP_BUDGET_LSB   (55)     /* Voffset ±20 mV + VSC ±10 mV（表 59）≈ 37 LSB，DAC 缓冲关 TUE ±12 LSB（表 58），
+                                      ADC ET 5.7 LSB（表 54），推算值 */
+#define VIN13_LIMIT_LSB   (20)     /* VrefInt 读数随 DAC 码值变化超过此值，记为 VIN13 被 dac_int1 占用 */
+#define NO_TRIP           (0xFFFFU)
+
+/* Private macro -------------------------------------------------------------*/
+/* Private variables ---------------------------------------------------------*/
+static const uint32_t CompInm[COMP_CASES] =
+{
+  LL_COMP_INPUT_MINUS_1_4VREFINT, LL_COMP_INPUT_MINUS_1_2VREFINT, LL_COMP_INPUT_MINUS_3_4VREFINT,
+  LL_COMP_INPUT_MINUS_VREFINT, LL_COMP_INPUT_MINUS_1_2VREFINT, LL_COMP_INPUT_MINUS_1_2VREFINT,
+  LL_COMP_INPUT_MINUS_1_2VREFINT
+};
+static const uint32_t CompK[COMP_CASES]    = {1U, 2U, 3U, 4U, 2U, 2U, 2U};
+static const uint32_t CompHyst[COMP_CASES] =
+{
+  LL_COMP_HYSTERESIS_NONE, LL_COMP_HYSTERESIS_NONE, LL_COMP_HYSTERESIS_NONE, LL_COMP_HYSTERESIS_NONE,
+  LL_COMP_HYSTERESIS_LOW, LL_COMP_HYSTERESIS_MEDIUM, LL_COMP_HYSTERESIS_HIGH
+};
+
+/* 两点都落在约 0.65 V 与 2.9 V 输出之间，远离 VOLSAT/VOHSAT 的 100 mV（DS15135 表 60） */
+static const uint32_t OpampGain[OPAMP_CASES]  = {1U, 2U, 4U, 8U, 16U};
+static const uint32_t OpampCodeA[OPAMP_CASES] = {400U, 400U, 200U, 100U, 50U};
+static const uint32_t OpampCodeB[OPAMP_CASES] = {3600U, 1800U, 900U, 450U, 225U};
+
+volatile comp_case_t  g_comp[COMP_CASES];
+volatile opamp_case_t g_opamp[OPAMP_CASES];
+volatile uint32_t g_rounds;          /* 已完成整轮数 */
+volatile uint32_t g_error;           /* 0 正常；1 时钟；2 ADC 校准；3 DAC1RDY；4 ADC 超时；5 OVR；6 VrefInt 为 0；7 DOR 不符 */
+volatile uint32_t g_dac2_ready;      /* 1：DAC2RDY 置位；0：通道 2 不可用，跳过 OPAMP 项 */
+volatile uint32_t g_vrefint_base;    /* DAC 使能前的 VrefInt 平均码 */
+volatile uint32_t g_vrefint_dac0;    /* DAC 通道 1 = 0 时的 VrefInt 平均码 */
+volatile uint32_t g_vrefint_dac4095; /* DAC 通道 1 = 4095 时的 VrefInt 平均码 */
+volatile uint32_t g_vin13_dac_seen;  /* 1：两者相差 > VIN13_LIMIT_LSB（RM0522 表 139 VIN13 = VREFINT or dac_int1） */
+volatile uint32_t g_vrefplus_mv;     /* 由 VrefInt 校准值反推的 VREF+ */
+volatile uint32_t g_ccipr2;          /* RCC_CCIPR2 快照：ADCDACSEL / ADCDACPRE */
+volatile uint32_t g_dac_mcr;         /* DAC_MCR 快照：HFSEL / MODE1 / MODE2 */
+volatile uint32_t g_comp_cfgr1;      /* 最后一项的 COMP_CFGR1 */
+volatile uint32_t g_opamp_csr;       /* 最后一项的 OPAMP_CSR */
+volatile uint32_t g_trim_n;          /* 出厂 TRIMOFFSETN（USERTRIM = 0） */
+volatile uint32_t g_trim_p;          /* 出厂 TRIMOFFSETP */
+
+/* Private functions ---------------------------------------------------------*/
+/* Private functions prototype -----------------------------------------------*/
+static uint32_t CompSweep(volatile comp_case_t *c);
+static uint32_t OpampMeasure(volatile opamp_case_t *o);
+static uint32_t ReadPa6(uint32_t *p_pa6, uint32_t *p_vrefint);
+static uint32_t WriteSettleRead(uint32_t channel, uint32_t code, uint32_t *p_pa6, uint32_t *p_vrefint);
+static int32_t OpampBudget(uint32_t gain, uint32_t delta_code);
+
+
+app_status_t app_init(void)
+{
+  app_status_t return_status = EXEC_STATUS_ERROR;
+  uint32_t pa6;
+  uint32_t vrefint;
+
+  if (SystemCoreClock != 144000000U)
+  {
+    g_error = 1U;
+    goto _app_init_exit;
+  }
+
+  DCB->DEMCR |= DCB_DEMCR_TRCENA_Msk;
+  DWT->CYCCNT = 0U;
+  DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
+
+  /** ########## Step 1 ##########
+    * Initializes the MX_OPAMPx instance (C5 #35：此处只配置，不使能；输入改到 DAC 由 OPAMP_Restart 完成).
+    */
+  if (mx_opampx_init() == NULL)
+  {
+    goto _app_init_exit;
+  }
+  g_trim_n = LL_OPAMP_GetOffsetTrimValue(MX_OPAMPx, LL_OPAMP_POWER_MODE_NORMAL, LL_OPAMP_TRIMMING_NMOS);
+  g_trim_p = LL_OPAMP_GetOffsetTrimValue(MX_OPAMPx, LL_OPAMP_POWER_MODE_NORMAL, LL_OPAMP_TRIMMING_PMOS);
+
+  /** ########## Step 2 ##########
+    * Initializes the MX_ADCx instance, adds VrefInt as rank 2, calibrates and enables it.
+    */
+  if (mx_adcx_init() == NULL)
+  {
+    goto _app_init_exit;
+  }
+  ADC_Config();
+  if (ADC_CalibrateEnable() == 0U)
+  {
+    g_error = 2U;
+    goto _app_init_exit;
+  }
+  g_ccipr2 = RCC->CCIPR2;
+
+  LL_Delay_NoISR(1U); /* VrefInt 通路稳定等待，同 #33 */
+  if (ReadPa6(&pa6, &vrefint) != 0U)
+  {
+    goto _app_init_exit;
+  }
+  g_vrefint_base = vrefint;
+  g_vrefplus_mv = LL_ADC_CALC_VREFANALOG_VOLTAGE(g_vrefint_base, LL_ADC_RESOLUTION_12B);
+
+  /** ########## Step 3 ##########
+    * C5 #35：DAC1 两个通道只接片内外设；通道 2 等不到就绪标志时只跳过 OPAMP 项。
+    */
+  DAC_Config();
+  if (DAC_StartChannel(LL_DAC_CHANNEL_1) == 0U)
+  {
+    g_error = 3U;
+    goto _app_init_exit;
+  }
+  g_dac2_ready = DAC_StartChannel(LL_DAC_CHANNEL_2);
+  g_dac_mcr = MX_DACx->MCR;
+
+  /* COMP1 时钟；COMP2 保持关闭（ES0676 §2.4.1，适用 Rev Z） */
+  LL_APB1_GRP2_EnableClock(LL_APB1_GRP2_PERIPH_COMP12);
+
+  return_status = EXEC_STATUS_INIT_OK;
+
+_app_init_exit:
+  return return_status;
+} /* end app_init */
+
+
+/** ########## Step 4 ##########
+  * C5 #35：每次调用跑一整轮：VIN13 检查 → 7 项 COMP 扫描 → 5 项 OPAMP 两点测量。
+  */
+app_status_t app_process(void)
+{
+  uint32_t pa6;
+  uint32_t vrefint;
+  uint32_t i;
+  int32_t  d;
+
+  /* VIN13 检查：DAC 通道 1 置两端码值，看 VrefInt 读数是否跟着变 */
+  if (WriteSettleRead(LL_DAC_CHANNEL_1, 0U, &pa6, &vrefint) != 0U)
+  {
+    return EXEC_STATUS_ERROR;
+  }
+  g_vrefint_dac0 = vrefint;
+  if (WriteSettleRead(LL_DAC_CHANNEL_1, 4095U, &pa6, &vrefint) != 0U)
+  {
+    return EXEC_STATUS_ERROR;
+  }
+  g_vrefint_dac4095 = vrefint;
+  d = (int32_t)g_vrefint_dac4095 - (int32_t)g_vrefint_dac0;
+  g_vin13_dac_seen = ((d > VIN13_LIMIT_LSB) || (d < -VIN13_LIMIT_LSB)) ? 1U : 0U;
+
+  for (i = 0U; i < COMP_CASES; i++)
+  {
+    g_comp[i].k_quarter = CompK[i];
+    g_comp[i].hyst      = CompHyst[i] >> COMP_CFGR1_HYST_Pos;
+    COMP_Restart(CompInm[i], CompHyst[i]);
+    if (CompSweep(&g_comp[i]) != 0U)
+    {
+      return EXEC_STATUS_ERROR;
+    }
+  }
+  g_comp_cfgr1 = MX_COMPx->CFGR1;
+  LL_COMP_Disable(MX_COMPx);
+
+  for (i = 0U; (i < OPAMP_CASES) && (g_dac2_ready != 0U); i++)
+  {
+    g_opamp[i].gain   = OpampGain[i];
+    g_opamp[i].code_a = OpampCodeA[i];
+    g_opamp[i].code_b = OpampCodeB[i];
+    OPAMP_Restart(OpampGain[i]);
+    if (OpampMeasure(&g_opamp[i]) != 0U)
+    {
+      return EXEC_STATUS_ERROR;
+    }
+  }
+  g_opamp_csr = MX_OPAMPx->CSR;
+  LL_OPAMP_Disable(MX_OPAMPx);
+
+  g_rounds++;
+  return EXEC_STATUS_OK;
+} /* end app_process */
+
+
+app_status_t app_deinit(void)
+{
+  mx_opampx_deinit();
+  mx_adcx_deinit();
+
+  return EXEC_STATUS_OK;
+} /* end app_deinit */
+
+
+/**
+  * C5 #35：上扫 0→4095 记第一次为 1，下扫 4095→0 记第一次为 0；同相端 > 反相端时输出为 1（极性不反相）。
+  */
+static uint32_t CompSweep(volatile comp_case_t *c)
+{
+  uint32_t code;
+  uint32_t rise = NO_TRIP;
+  uint32_t fall = NO_TRIP;
+
+  c->valid = 0U;
+  DAC_Write(LL_DAC_CHANNEL_1, 0U);
+  DelayUs(SETTLE_US);
+  for (code = 0U; code <= 4095U; code++)
+  {
+    DAC_Write(LL_DAC_CHANNEL_1, code);
+    DelayUs(COMP_STEP_US);
+    if (LL_DAC_RetrieveOutputData(MX_DACx, LL_DAC_CHANNEL_1) != code)
+    {
+      g_error = 7U;
+      return 1U;
+    }
+    if ((rise == NO_TRIP) && (LL_COMP_ReadOutputLevel(MX_COMPx) == LL_COMP_OUTPUT_LEVEL_HIGH))
+    {
+      rise = code;
+    }
+  }
+  for (code = 4096U; code-- > 0U;)
+  {
+    DAC_Write(LL_DAC_CHANNEL_1, code);
+    DelayUs(COMP_STEP_US);
+    if ((fall == NO_TRIP) && (LL_COMP_ReadOutputLevel(MX_COMPx) == LL_COMP_OUTPUT_LEVEL_LOW))
+    {
+      fall = code;
+    }
+  }
+
+  c->rise      = rise;
+  c->fall      = fall;
+  c->expect    = (g_vrefint_base * c->k_quarter + 2U) / 4U;
+  c->diff_lsb  = (int32_t)rise - (int32_t)c->expect;
+  c->hyst_lsb  = (int32_t)rise - (int32_t)fall;
+  c->hyst_uv   = ((rise != NO_TRIP) && (fall != NO_TRIP))   /* 未翻转时不换算，避免乘法溢出 */
+                 ? (c->hyst_lsb * (int32_t)g_vrefplus_mv * 1000) / 4096 : 0;
+  c->in_budget = ((rise != NO_TRIP) && (fall != NO_TRIP) && (c->hyst == 0U)
+                  && (c->diff_lsb <= COMP_BUDGET_LSB) && (c->diff_lsb >= -COMP_BUDGET_LSB)) ? 1U : 0U;
+  c->valid     = 1U;
+  return 0U;
+}
+
+
+/**
+  * C5 #35：两点法：增益取差值之比，OPAMP 失调与 DAC 失调在相减中抵消。
+  */
+static uint32_t OpampMeasure(volatile opamp_case_t *o)
+{
+  uint32_t vrefint;
+  uint32_t adc;
+  int32_t  g1000 = (int32_t)o->gain * 1000;
+
+  o->valid = 0U;
+  if (WriteSettleRead(LL_DAC_CHANNEL_2, o->code_a, &adc, &vrefint) != 0U)
+  {
+    return 1U;
+  }
+  o->adc_a = adc;
+  if (WriteSettleRead(LL_DAC_CHANNEL_2, o->code_b, &adc, &vrefint) != 0U)
+  {
+    return 1U;
+  }
+  o->adc_b = adc;
+
+  o->offset_a_lsb    = (int32_t)o->adc_a - (int32_t)(o->gain * o->code_a);
+  o->gain_milli      = ((int32_t)o->adc_b - (int32_t)o->adc_a) * 1000 / (int32_t)(o->code_b - o->code_a);
+  o->err_permille    = (o->gain_milli - g1000) * 1000 / g1000;
+  o->budget_permille = OpampBudget(o->gain, o->code_b - o->code_a);
+  o->in_budget       = ((o->err_permille <= o->budget_permille) && (o->err_permille >= -o->budget_permille)) ? 1U : 0U;
+  o->valid           = 1U;
+  return 0U;
+}
+
+
+/**
+  * C5 #35：推算预算（‰）：DAC 缓冲关增益误差 ±1%（表 58）+ PGA 增益误差 ±1%（表 60，跟随不计）
+  * + DAC INL 两端各 ±4 LSB 折算到码差 + ADC 两端各 5.7 LSB 折算到约 2800 LSB 输出差（≈ 4‰）。
+  */
+static int32_t OpampBudget(uint32_t gain, uint32_t delta_code)
+{
+  int32_t budget = 10 + 4 + (int32_t)((8000U + delta_code - 1U) / delta_code);
+
+  return (gain == 1U) ? budget : (budget + 10);
+}
+
+
+/**
+  * C5 #35：ADC 回读；错误码写入 g_error。
+  */
+static uint32_t ReadPa6(uint32_t *p_pa6, uint32_t *p_vrefint)
+{
+  uint32_t status = ADC_ReadAvg(p_pa6, p_vrefint);
+
+  if (status != 0U)
+  {
+    g_error = (status == 1U) ? 4U : 5U;
+    return 1U;
+  }
+  if (*p_vrefint == 0U)
+  {
+    g_error = 6U;   /* VrefInt 为 0，不做除法换算 */
+    return 1U;
+  }
+  return 0U;
+}
+
+
+/**
+  * C5 #35：写码 → 等 SETTLE_US → 核对 DOR → ADC 回读；错误码写入 g_error。
+  */
+static uint32_t WriteSettleRead(uint32_t channel, uint32_t code, uint32_t *p_pa6, uint32_t *p_vrefint)
+{
+  DAC_Write(channel, code);
+  DelayUs(SETTLE_US);
+  if (LL_DAC_RetrieveOutputData(MX_DACx, channel) != code)
+  {
+    g_error = 7U;
+    return 1U;
+  }
+  return ReadPa6(p_pa6, p_vrefint);
+}

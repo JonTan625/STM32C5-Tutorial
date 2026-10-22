@@ -1,0 +1,11 @@
+--- official/examples/ll/adc/multi_channels_dma/application/main.c
++++ c5_36/examples/ll/adc/multi_channels_dma/application/main.c
+@@ -21,7 +21,7 @@
+ /* Private define ------------------------------------------------------------*/
+ 
+ /* @user: configure the delay in milliseconds between 2 loop rounds */
+-#define EXAMPLE_LOOP_DELAY_MS 1000U
++#define EXAMPLE_LOOP_DELAY_MS 1U /* C5 #36：官方 1000U；采集终端每 1 ms 服务一次串口与 DMA 半块 */
+ 
+ /* Private macro -------------------------------------------------------------*/
+ /* Private variables ---------------------------------------------------------*/

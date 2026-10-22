@@ -1,0 +1,214 @@
+--- official/application/example.c
++++ c5_19/application/example.c
+@@ -63,13 +63,20 @@
+ __attribute__((section(".bss.non_cacheable_variables"), aligned(DMA_ALIGNMENT)))
+ uint32_t DstTriggeredBuffer[BUFFER_SIZE_IN_WORDS];
+ 
+-uint32_t BlkDataLength = 0U;
+-uint32_t NumberOfBlocksToTransfer = 0U;
+ 
+ volatile uint8_t TriggeringTransferComplete;
+ volatile uint8_t TriggeringTransferError;
+ volatile uint8_t TriggeredTransferComplete;
+ volatile uint8_t TriggeredTransferError;
++
++/* C5 #19：两种触发模式各跑一遍，结果留在下面几个数组里，用调试器 Watch 查看 */
++#define CASE_NUM 2U                         /* 0：SINGLE_BURST（官方配置），1：BLOCK */
++uint32_t g_ctr2[CASE_NUM];                  /* 启动后读到的 LPDMA1_CH1->CTR2 */
++uint32_t g_remain[CASE_NUM][BUFFER_SIZE_IN_WORDS + 1U]; /* [0]=触发前，[k]=第 k 次触发后的剩余字节 */
++uint32_t g_tc_at[CASE_NUM];                 /* 被触发通道完成回调出现在第几次触发之后（0=未完成） */
++uint32_t g_ok[CASE_NUM];                    /* 两个缓冲区比对都通过为 1 */
++static volatile uint32_t s_trigger_count; /* 在触发方完成回调里加 1 */
++static uint32_t s_case;
+ 
+ /* Private functions prototype -----------------------------------------------*/
+ static void TriggeringTransferCompleteCallback(hal_dma_handle_t *handle_dma);
+@@ -129,121 +136,72 @@
+ 
+ 
+ /** ########## Step 2 ##########
+-  * Start the DMA transfer on the triggered channel.
+-  */
+-app_status_t app_process(void)
+-{
+-  app_status_t return_status = EXEC_STATUS_ERROR;
+-
+-  /* Total bytes to transfer for triggering channel */
+-  NumberOfBlocksToTransfer = BUFFER_SIZE_IN_WORDS * 4;
+-
+-  /* Clear Triggered DMA flags */
++  * C5 #19：同一条触发链跑两遍。第一遍用官方的 SINGLE_BURST（每次触发搬一个字），
++  * 第二遍把被触发通道改成 BLOCK（一次触发放行整个块），记录每次触发后的剩余字节。
++  */
++static app_status_t run_case(uint32_t idx, hal_dma_trigger_mode_t mode)
++{
++  hal_dma_trigger_config_t trigger_cfg;
++
++  s_case = idx;
++  s_trigger_count = 0U;
++  (void)memset(DstTriggeringBuffer, 0, sizeof(DstTriggeringBuffer));
++  (void)memset(DstTriggeredBuffer, 0, sizeof(DstTriggeredBuffer));
++
++  /* 只能在通道 IDLE 时改触发配置；来源与极性沿用生成代码 mx_lpdma1_ch1.c */
++  trigger_cfg.source   = HAL_LPDMA1_TRIGGER_LPDMA1_CH0_TC;
++  trigger_cfg.polarity = HAL_DMA_TRIGGER_POLARITY_RISING;
++  trigger_cfg.mode     = mode;
++  if (HAL_DMA_SetConfigDirectXferTrigger(pDMA_Triggered, &trigger_cfg) != HAL_OK)
++  {
++    return EXEC_STATUS_ERROR;
++  }
++
+   TriggeredTransferComplete = 0U;
+   TriggeredTransferError    = 0U;
+-
+-  /* BUFFER_SIZE_IN_WORDS is multiplied by 4,
+-    because the HAL parameter is given in bytes number and not words number */
+-  if (HAL_DMA_StartDirectXfer_IT(pDMA_Triggered,
+-                                 (uint32_t)&SrcTriggeredBuffer,
+-                                 (uint32_t)&DstTriggeredBuffer,
+-                                 BUFFER_SIZE_IN_WORDS * 4)  != HAL_OK)
+-  {
+-    goto _app_process_exit;
+-  }
+-
+-  /** Check that the transfer has not started yet.
+-    * This ensures the triggered DMA is waiting for trigger events,
+-    * from the triggering DMA.
+-    */
+-  BlkDataLength = HAL_DMA_GetDirectXferRemainingDataByte(pDMA_Triggered);
+-
+-  if (NumberOfBlocksToTransfer != BlkDataLength)
+-  {
+-    goto _app_process_exit;
+-  }
+-
+-  /** ########## Step 3 ##########
+-    * Trigger the triggering channel to start multiple small transfers,
+-    * each transferring a block of data and triggering the triggered channel.
+-    * Wait for each transfer to complete or detect an error.
+-    */
+-
+-  /** Each completion of the triggering DMA transfer causes one word to be transferred
+-    * on the triggered DMA channel, because of the single burst trigger configuration.
+-    * The application loops over the triggering DMA transfers to ensure the entire buffer
+-    * is processed by the triggered DMA.
+-    */
++  if (HAL_DMA_StartDirectXfer_IT(pDMA_Triggered, (uint32_t)&SrcTriggeredBuffer,
++                                 (uint32_t)&DstTriggeredBuffer, BUFFER_SIZE_IN_WORDS * 4U) != HAL_OK)
++  {
++    return EXEC_STATUS_ERROR;
++  }
++  g_ctr2[idx] = LPDMA1_CH1->CTR2;
++  g_remain[idx][0] = HAL_DMA_GetDirectXferRemainingDataByte(pDMA_Triggered);
++
+   for (uint32_t dataIdx = 0; dataIdx < BUFFER_SIZE_IN_WORDS; dataIdx++)
+   {
+-    /* Clear Triggering DMA flags */
+     TriggeringTransferComplete = 0U;
+     TriggeringTransferError    = 0U;
+-
+-    /* Configure source, destination and buffer size and Start DMA transfer */
+-    /* Enable All the DMA interrupts */
+-    if (HAL_DMA_StartDirectXfer_IT(pDMA_Triggering,
+-                                   (uint32_t)&SrcTriggeringBuffer[dataIdx],
+-                                   (uint32_t)&DstTriggeringBuffer[dataIdx],
+-                                   TRIGGERCHANNEL_BLOCK_SIZE) != HAL_OK)
++    if (HAL_DMA_StartDirectXfer_IT(pDMA_Triggering, (uint32_t)&SrcTriggeringBuffer[dataIdx],
++                                   (uint32_t)&DstTriggeringBuffer[dataIdx], TRIGGERCHANNEL_BLOCK_SIZE) != HAL_OK)
+     {
+-      goto _app_process_exit;
++      return EXEC_STATUS_ERROR;
+     }
+-
+-    /* Wait for the triggering DMA transfer to complete or an error to occur */
+     while ((TriggeringTransferComplete == 0U) && (TriggeringTransferError != 1U));
+-
+-    /* Check DMA error */
+     if (TriggeringTransferError == 1U)
+     {
+-      goto _app_process_exit;
++      return EXEC_STATUS_ERROR;
+     }
+-
+-    /* Update remaining bytes count for triggering DMA */
+-    NumberOfBlocksToTransfer -= TRIGGERCHANNEL_BLOCK_SIZE;
+-
+-    /** Verify that the triggered DMA transfer remains waiting for triggers.
+-      * The remaining data length on the triggered DMA matches the updated count
+-      */
+-    BlkDataLength = HAL_DMA_GetDirectXferRemainingDataByte(pDMA_Triggered);
+-
+-    if (NumberOfBlocksToTransfer != BlkDataLength)
+-    {
+-      goto _app_process_exit;
+-    }
+-  }
+-
+-
+-  /** ########## Step 4 ##########
+-    * After all small triggering DMA transfers complete,
+-    * wait for the triggered DMA channel to finish the entire buffer transfer.
+-    * This step ensures the triggered DMA has completed processing,
+-    * all triggered transfers,
+-    * Checks DMA transfers complete.
+-    */
++    g_remain[idx][dataIdx + 1U] = HAL_DMA_GetDirectXferRemainingDataByte(pDMA_Triggered);
++  }
++
+   while ((TriggeredTransferComplete == 0U) && (TriggeredTransferError != 1U));
+-
+-  /* Check of transfer DMA error */
+   if (TriggeredTransferError == 1U)
+   {
+-    goto _app_process_exit;
+-  }
+-
+-  /* Check if the triggering DMA buffer was correctly transferred */
+-  if (memcmp(SrcTriggeringBuffer, DstTriggeringBuffer, BUFFER_SIZE_IN_WORDS * 4U) != 0U)
+-  {
+-    goto _app_process_exit;
+-  }
+-
+-  /* Check if the triggered DMA buffer was correctly transferred */
+-  if (memcmp(SrcTriggeredBuffer, DstTriggeredBuffer, BUFFER_SIZE_IN_WORDS * 4U) != 0U)
+-  {
+-    goto _app_process_exit;
+-  }
+-  return_status = EXEC_STATUS_OK;
+-
+-_app_process_exit:
+-  return return_status;
++    return EXEC_STATUS_ERROR;
++  }
++
++  g_ok[idx] = ((memcmp(SrcTriggeringBuffer, DstTriggeringBuffer, BUFFER_SIZE_IN_WORDS * 4U) == 0)
++               && (memcmp(SrcTriggeredBuffer, DstTriggeredBuffer, BUFFER_SIZE_IN_WORDS * 4U) == 0)) ? 1U : 0U;
++  return (g_ok[idx] == 1U) ? EXEC_STATUS_OK : EXEC_STATUS_ERROR;
++}
++
++app_status_t app_process(void)
++{
++  if (run_case(0U, HAL_DMA_TRIGGER_SINGLE_BURST_TRANSFER) != EXEC_STATUS_OK)
++  {
++    return EXEC_STATUS_ERROR;
++  }
++  return run_case(1U, HAL_DMA_TRIGGER_BLOCK_TRANSFER);
+ } /* end app_process */
+ 
+ 
+@@ -263,6 +221,7 @@
+ static void TriggeringTransferCompleteCallback(hal_dma_handle_t *handle_dma)
+ {
+   TriggeringTransferComplete = 1U; /* Complete flag for triggering channel */
++  s_trigger_count++;
+ }
+ 
+ /** DMA transfer error callback for triggering DMA channels*/
+@@ -275,6 +234,7 @@
+ static void TriggeredTransferCompleteCallback(hal_dma_handle_t *handle_dma)
+ {
+   TriggeredTransferComplete = 1U; /* Complete flag for triggered channel */
++  g_tc_at[s_case] = s_trigger_count;
+ }
+ 
+ /** DMA transfer error callback for triggered DMA channels */

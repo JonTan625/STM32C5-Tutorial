@@ -1,0 +1,11 @@
+--- official/NUCLEO-C542RC/user_modifiable/Device/STM32C542RCT6/stm32c542xc_flash.ld
++++ c5_46/NUCLEO-C542RC/user_modifiable/Device/STM32C542RCT6/stm32c542xc_flash.ld
+@@ -24,7 +24,7 @@
+ 
+ MEMORY
+ {
+-  ROM (rx) : org = 0x8000000, len = 0x40000
++  ROM (rx) : org = 0x8000000, len = 0x3E000 /* C5 #46：最后 8 KB（0x0803E000）留给配置页 */
+   RAM (xrw) : org = 0x20000000, len = 0x10000
+ }
+ 

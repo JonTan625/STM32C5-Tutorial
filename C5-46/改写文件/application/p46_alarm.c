@@ -1,0 +1,44 @@
+/**
+  ******************************************************************************
+  * file           : p46_alarm.c
+  * brief          : C5 #46 报警判定（F03）：连续 3 个有效样本 >= high 进 ALARM，
+  *                  ALARM 下连续 3 个 <= low 回 RUN；不满足本方向条件即清本方向计数，迟滞带内保持。
+  *                  不读硬件、不写 Flash，只由主循环调用。
+  ******************************************************************************
+  */
+#include "p46.h"
+
+void alarm_reset(p46_alarm_t *p_alarm)
+{
+  p_alarm->up = 0U;
+  p_alarm->down = 0U;
+}
+
+p46_state_t alarm_step(p46_alarm_t *p_alarm, p46_state_t state, uint16_t raw, uint16_t low, uint16_t high)
+{
+  if (state == P46_ST_RUN)
+  {
+    p_alarm->down = 0U;
+    p_alarm->up = (raw >= high) ? (uint8_t)(p_alarm->up + 1U) : 0U;
+    if (p_alarm->up >= P46_QUALIFY_SAMPLES)
+    {
+      p_alarm->up = 0U;
+      return P46_ST_ALARM;
+    }
+  }
+  else if (state == P46_ST_ALARM)
+  {
+    p_alarm->up = 0U;
+    p_alarm->down = (raw <= low) ? (uint8_t)(p_alarm->down + 1U) : 0U;
+    if (p_alarm->down >= P46_QUALIFY_SAMPLES)
+    {
+      p_alarm->down = 0U;
+      return P46_ST_RUN;
+    }
+  }
+  else
+  {
+    alarm_reset(p_alarm);   /* STOP/FAULT 不判报警 */
+  }
+  return state;
+}

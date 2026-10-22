@@ -1,0 +1,8 @@
+[
+  {
+    "official_path": "examples/hal/cordic/sincos_polling/application/example.c",
+    "package_path": "example.c",
+    "diff": "example_c_改动.diff",
+    "sha256": "e9e9df3b9ec7f05787f2001c8996934208352ba75764cd7d757ec1f65f4fcd58"
+  }
+]

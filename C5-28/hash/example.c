@@ -1,0 +1,278 @@
+/**
+  ******************************************************************************
+  * file           : example.c
+  * brief          : HASH Integrity SHA256 with HAL API.
+  ******************************************************************************
+  *
+  * Copyright (c) 2026 STMicroelectronics.
+  * All rights reserved.
+  *
+  * This software is licensed under terms that can be found in the LICENSE file
+  * in the root directory of this software component.
+  * If no LICENSE file comes with this software, it is provided AS-IS.
+  *
+  ******************************************************************************
+  */
+
+/* Includes ------------------------------------------------------------------*/
+#include "example.h"
+#include <string.h>
+
+/* Private typedef -----------------------------------------------------------*/
+/* Private define ------------------------------------------------------------*/
+#define HASH_TIMEOUT_MS 1000
+#define HASH_OUTPUT_BUFFER_SIZE 32
+#define MESSAGE_SIZE 163
+
+/* Private macro -------------------------------------------------------------*/
+/* Private variables ---------------------------------------------------------*/
+hal_hash_handle_t *pHASH;
+
+
+/** Extract from NIST Publication: SHA Test Vectors for Hashing Byte-Oriented Messages SHA256LongMsg.rsp
+  *
+  * Len = 1304
+  * Msg = 451101250ec6f26652249d59dc974b7361d571a8101cdfd36aba3b5854d3ae0
+  * 86b5fdd4597721b66e3c0dc5d8c606d9657d0e323283a5217d1f53f2f284f57b85c8a
+  * 61ac8924711f895c5ed90ef17745ed2d728abd22a5f7a13479a462d71b56c19a74a40
+  * b655c58edfe0a188ad2cf46cbf30524f65d423c837dd1ff2bf462ac4198007345bb44
+  * dbb7b1c861298cdf61982a833afc728fae1eda2f87aa2c9480858bec
+  * MD = 3c593aa539fdcdae516cdf2f15000f6634185c88f505b39775fb9ab137a10aa2
+  */
+/* Message to be computed */
+uint8_t Message[MESSAGE_SIZE] =
+{
+  0x45, 0x11, 0x01, 0x25, 0x0e, 0xc6, 0xf2, 0x66, 0x52, 0x24, 0x9d, 0x59, 0xdc, 0x97, 0x4b, 0x73,
+  0x61, 0xd5, 0x71, 0xa8, 0x10, 0x1c, 0xdf, 0xd3, 0x6a, 0xba, 0x3b, 0x58, 0x54, 0xd3, 0xae, 0x08,
+  0x6b, 0x5f, 0xdd, 0x45, 0x97, 0x72, 0x1b, 0x66, 0xe3, 0xc0, 0xdc, 0x5d, 0x8c, 0x60, 0x6d, 0x96,
+  0x57, 0xd0, 0xe3, 0x23, 0x28, 0x3a, 0x52, 0x17, 0xd1, 0xf5, 0x3f, 0x2f, 0x28, 0x4f, 0x57, 0xb8,
+  0x5c, 0x8a, 0x61, 0xac, 0x89, 0x24, 0x71, 0x1f, 0x89, 0x5c, 0x5e, 0xd9, 0x0e, 0xf1, 0x77, 0x45,
+  0xed, 0x2d, 0x72, 0x8a, 0xbd, 0x22, 0xa5, 0xf7, 0xa1, 0x34, 0x79, 0xa4, 0x62, 0xd7, 0x1b, 0x56,
+  0xc1, 0x9a, 0x74, 0xa4, 0x0b, 0x65, 0x5c, 0x58, 0xed, 0xfe, 0x0a, 0x18, 0x8a, 0xd2, 0xcf, 0x46,
+  0xcb, 0xf3, 0x05, 0x24, 0xf6, 0x5d, 0x42, 0x3c, 0x83, 0x7d, 0xd1, 0xff, 0x2b, 0xf4, 0x62, 0xac,
+  0x41, 0x98, 0x00, 0x73, 0x45, 0xbb, 0x44, 0xdb, 0xb7, 0xb1, 0xc8, 0x61, 0x29, 0x8c, 0xdf, 0x61,
+  0x98, 0x2a, 0x83, 0x3a, 0xfc, 0x72, 0x8f, 0xae, 0x1e, 0xda, 0x2f, 0x87, 0xaa, 0x2c, 0x94, 0x80,
+  0x85, 0x8b, 0xec
+};
+/* The expected message of the compute process */
+uint8_t ExpectedHash[HASH_OUTPUT_BUFFER_SIZE] =
+{
+  0x3c, 0x59, 0x3a, 0xa5, 0x39, 0xfd, 0xcd, 0xae, 0x51, 0x6c, 0xdf, 0x2f, 0x15, 0x00, 0x0f, 0x66,
+  0x34, 0x18, 0x5c, 0x88, 0xf5, 0x05, 0xb3, 0x97, 0x75, 0xfb, 0x9a, 0xb1, 0x37, 0xa1, 0x0a, 0xa2
+};
+/* Message to be hashed by the accumulation process */
+uint8_t Msg65Input[65] __attribute__((aligned(128))) =
+{
+  0x52, 0x43, 0x31, 0x5f, 0x53, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x61, 0x50, 0x72, 0x6f, 0x6a, 0x65,
+  0x63, 0x74, 0x5f, 0x53, 0x46, 0x55, 0x61, 0x45, 0x78, 0x61, 0x6d, 0x70, 0x6c, 0x65, 0x73, 0x61,
+  0x53, 0x54, 0x4d, 0x33, 0x32, 0x32, 0x78, 0x47, 0x2d, 0x45, 0x56, 0x41, 0x4c, 0x61, 0x45, 0x57,
+  0x41, 0x52, 0x4d, 0x61, 0x53, 0x54, 0x4d, 0x33, 0x32, 0x32, 0x78, 0x47, 0x5f, 0x45, 0x56, 0x41,
+  0x4c
+};
+/* The expected message of the accumulation process */
+uint8_t Msg65Expected [32] =
+{
+  0xf6, 0x9c, 0x82, 0x20, 0x48, 0x97, 0x13, 0x5e, 0xbc, 0x18, 0xb3, 0xf3, 0x16,
+  0x08, 0x91, 0x78, 0x79, 0x89, 0x34, 0x39, 0x80, 0x43, 0xa0, 0xb5,
+  0xf8, 0x9e, 0x6a, 0x2e, 0x3e, 0x6b, 0x92, 0x1c
+};
+/* Output of accumulation message */
+uint8_t SHA256_Output[HASH_OUTPUT_BUFFER_SIZE] = {0};
+uint32_t SHA256_OutputSize;
+/* Computed HASH message */
+uint8_t computed_hash_message[HASH_OUTPUT_BUFFER_SIZE] = {0};
+uint32_t ComputedSize;
+/* C5 #28 改写（HASH）：结果经 USART2 打印（115200 8N1），也留在下面的全局变量里。
+ * 1. SHA-256 常用标准向量 "abc" 与 56 字节消息（期望值经电脑 hashlib 复核），字节数组 + 字节交换；
+ * 2. 同一条 56 字节消息改用“不交换”，看摘要怎样变；
+ * 3. 官方 NIST 163 字节向量照跑；
+ * 4. HMAC-SHA256（RFC 4231 测试 2）：密钥放在运行时缓冲区里传给 HAL，用完再清，不写进生成代码；
+ * 5. 用 DWT 计 1024 字节 SHA-256 的耗时。
+ */
+#define DIGEST_SIZE  32U
+#define BENCH_SIZE   1024U
+
+static const uint8_t MsgAbc[3] = {'a', 'b', 'c'};
+__attribute__((aligned(4)))
+static const uint8_t Msg56[56] =
+{
+  'a', 'b', 'c', 'd', 'b', 'c', 'd', 'e', 'c', 'd', 'e', 'f', 'd', 'e', 'f', 'g', 'e', 'f', 'g', 'h',
+  'f', 'g', 'h', 'i', 'g', 'h', 'i', 'j', 'h', 'i', 'j', 'k', 'i', 'j', 'k', 'l', 'j', 'k', 'l', 'm',
+  'k', 'l', 'm', 'n', 'l', 'm', 'n', 'o', 'm', 'n', 'o', 'p', 'n', 'o', 'p', 'q'
+};
+static const uint8_t DigestAbc[DIGEST_SIZE] =
+{
+  0xba, 0x78, 0x16, 0xbf, 0x8f, 0x01, 0xcf, 0xea, 0x41, 0x41, 0x40, 0xde, 0x5d, 0xae, 0x22, 0x23,
+  0xb0, 0x03, 0x61, 0xa3, 0x96, 0x17, 0x7a, 0x9c, 0xb4, 0x10, 0xff, 0x61, 0xf2, 0x00, 0x15, 0xad
+};
+static const uint8_t Digest56[DIGEST_SIZE] =
+{
+  0x24, 0x8d, 0x6a, 0x61, 0xd2, 0x06, 0x38, 0xb8, 0xe5, 0xc0, 0x26, 0x93, 0x0c, 0x3e, 0x60, 0x39,
+  0xa3, 0x3c, 0xe4, 0x59, 0x64, 0xff, 0x21, 0x67, 0xf6, 0xec, 0xed, 0xd4, 0x19, 0xdb, 0x06, 0xc1
+};
+static const uint8_t HmacMsg[28] =
+{
+  'w', 'h', 'a', 't', ' ', 'd', 'o', ' ', 'y', 'a', ' ', 'w', 'a', 'n', 't', ' ',
+  'f', 'o', 'r', ' ', 'n', 'o', 't', 'h', 'i', 'n', 'g', '?'
+};
+static const uint8_t HmacExpected[DIGEST_SIZE] =
+{
+  0x5b, 0xdc, 0xc1, 0x46, 0xbf, 0x60, 0x75, 0x4e, 0x6a, 0x04, 0x24, 0x26, 0x08, 0x95, 0x75, 0xc7,
+  0x5a, 0x00, 0x3f, 0x08, 0x9d, 0x27, 0x39, 0x83, 0x9d, 0xec, 0x58, 0xb9, 0x64, 0xec, 0x38, 0x43
+};
+static uint8_t HmacKeyRam[4];            /* 模拟运行时从受保护存储取出的密钥；用完即清 */
+static uint8_t Digest[DIGEST_SIZE];
+static uint8_t BenchData[BENCH_SIZE];
+
+uint32_t g_sha_abc_ok;       /* "abc" 摘要与标准一致为 1 */
+uint32_t g_sha_56_ok;        /* 56 字节消息、字节交换：一致为 1 */
+uint32_t g_sha_56_noswap_ok; /* 同一消息、不交换：与标准一致为 1（预期为 0） */
+uint32_t g_sha_56_noswap_w0; /* 不交换时摘要的前 4 字节，按大端拼成一个字 */
+uint32_t g_sha_nist_ok;      /* 官方 163 字节向量一致为 1 */
+uint32_t g_hmac_ok;          /* HMAC-SHA256 与 RFC 4231 一致为 1 */
+uint32_t g_hmac_key_cleared; /* HMAC 结束后密钥缓冲区已清零为 1 */
+uint32_t g_sha_1k_cycles;    /* 1024 字节 SHA-256 的 HCLK 周期 */
+uint32_t g_sha_1k_w0;        /* 1024 字节摘要的前 4 字节 */
+
+/* Private functions prototype -----------------------------------------------*/
+static app_status_t sha_case(hal_hash_data_swapping_t swapping, const uint8_t *p_msg, uint32_t size,
+                             const uint8_t *p_expected, uint32_t *p_ok);
+static void secure_zero(void *p, uint32_t size);
+
+/** ########## Step 1 ##########
+  * Initializes the HASH instance.
+  */
+app_status_t app_init(void)
+{
+  app_status_t return_status = EXEC_STATUS_ERROR;
+
+  pHASH = mx_example_hash_init();
+  if (pHASH != NULL)
+  {
+    DCB->DEMCR |= DCB_DEMCR_TRCENA_Msk;  /* DWT 周期计数器（#14） */
+    DWT->CYCCNT = 0U;
+    DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
+    PRINTF("[INFO] Step 1: HASH initialization COMPLETED.\n");
+    return_status = EXEC_STATUS_INIT_OK;
+  }
+  else
+  {
+    PRINTF("[ERROR] Step 1: HASH initialization ERROR.\n");
+    return_status = EXEC_STATUS_ERROR;
+  }
+
+  return return_status;
+} /* end app_init */
+
+
+app_status_t app_process(void)
+{
+  app_status_t return_status = EXEC_STATUS_ERROR;
+  hal_hash_hmac_config_t hmac_config;
+  uint32_t t0;
+
+  /* ① ② ③ SHA-256：字节数组用字节交换；同一条 56 字节消息再用“不交换”跑一遍 */
+  if ((sha_case(HAL_HASH_DATA_SWAP_BYTE, MsgAbc, sizeof(MsgAbc), DigestAbc, &g_sha_abc_ok) != EXEC_STATUS_OK)
+      || (sha_case(HAL_HASH_DATA_SWAP_BYTE, Msg56, sizeof(Msg56), Digest56, &g_sha_56_ok) != EXEC_STATUS_OK)
+      || (sha_case(HAL_HASH_DATA_SWAP_NO, Msg56, sizeof(Msg56), Digest56, &g_sha_56_noswap_ok) != EXEC_STATUS_OK))
+  {
+    goto _app_process_exit;
+  }
+  g_sha_56_noswap_w0 = ((uint32_t)Digest[0] << 24) | ((uint32_t)Digest[1] << 16) | ((uint32_t)Digest[2] << 8) | Digest[3];
+  if (sha_case(HAL_HASH_DATA_SWAP_BYTE, Message, MESSAGE_SIZE, ExpectedHash, &g_sha_nist_ok) != EXEC_STATUS_OK)
+  {
+    goto _app_process_exit;
+  }
+  PRINTF("[C5#28] SHA-256 abc %s, 56B %s, 56B no swap %s (digest starts 0x%08lX), NIST 163B %s\n",
+         (g_sha_abc_ok != 0U) ? "OK" : "NG", (g_sha_56_ok != 0U) ? "OK" : "NG",
+         (g_sha_56_noswap_ok != 0U) ? "OK" : "NG", (unsigned long)g_sha_56_noswap_w0, (g_sha_nist_ok != 0U) ? "OK" : "NG");
+
+  /* ④ HMAC-SHA256：密钥从运行时缓冲区给出；HAL 只保存指针，算完外层哈希之前不能清 */
+  HmacKeyRam[0] = 'J';
+  HmacKeyRam[1] = 'e';
+  HmacKeyRam[2] = 'f';
+  HmacKeyRam[3] = 'e';
+  hmac_config.data_swapping = HAL_HASH_DATA_SWAP_BYTE;
+  hmac_config.algorithm     = HAL_HASH_ALGO_SHA256;
+  hmac_config.p_hmac_key    = HmacKeyRam;
+  hmac_config.key_size_byte = sizeof(HmacKeyRam);
+  if ((HAL_HASH_HMAC_SetConfig(pHASH, &hmac_config) != HAL_OK)
+      || (HAL_HASH_HMAC_Compute(pHASH, HmacMsg, sizeof(HmacMsg), Digest, DIGEST_SIZE, &ComputedSize,
+                                HASH_TIMEOUT_MS) != HAL_OK))
+  {
+    goto _app_process_exit;
+  }
+  g_hmac_ok = (memcmp(Digest, HmacExpected, DIGEST_SIZE) == 0) ? 1U : 0U;
+  secure_zero(HmacKeyRam, sizeof(HmacKeyRam));      /* 外层哈希算完才能清（HAL 只存指针） */
+  g_hmac_key_cleared = ((HmacKeyRam[0] | HmacKeyRam[1] | HmacKeyRam[2] | HmacKeyRam[3]) == 0U) ? 1U : 0U;
+
+  /* ⑤ 1024 字节 SHA-256 计时（恢复普通哈希配置） */
+  for (uint32_t i = 0U; i < BENCH_SIZE; i++)
+  {
+    BenchData[i] = (uint8_t)((i * 31U) + 7U);
+  }
+  t0 = DWT->CYCCNT;
+  if (sha_case(HAL_HASH_DATA_SWAP_BYTE, BenchData, BENCH_SIZE, NULL, NULL) != EXEC_STATUS_OK)
+  {
+    goto _app_process_exit;
+  }
+  g_sha_1k_cycles = DWT->CYCCNT - t0;
+  g_sha_1k_w0 = ((uint32_t)Digest[0] << 24) | ((uint32_t)Digest[1] << 16) | ((uint32_t)Digest[2] << 8) | Digest[3];
+  PRINTF("[C5#28] HMAC-SHA256 %s, key cleared %s; SHA-256 1KB %lu cycles, digest starts 0x%08lX\n",
+         (g_hmac_ok != 0U) ? "OK" : "NG", (g_hmac_key_cleared != 0U) ? "yes" : "no",
+         (unsigned long)g_sha_1k_cycles, (unsigned long)g_sha_1k_w0);
+  (void)memset(Digest, 0, sizeof(Digest));
+
+  if ((g_sha_abc_ok == 1U) && (g_sha_56_ok == 1U) && (g_sha_56_noswap_ok == 0U) && (g_sha_nist_ok == 1U)
+      && (g_hmac_ok == 1U))
+  {
+    return_status = EXEC_STATUS_OK;
+  }
+
+_app_process_exit:
+  return return_status;
+} /* end app_process */
+
+/** 清零：用 volatile 指针逐字节写 0。普通 memset 清一个马上失效的局部变量，优化时会被编译器当作无用写入删掉 */
+static void secure_zero(void *p, uint32_t size)
+{
+  volatile uint8_t *q = (volatile uint8_t *)p;
+
+  for (uint32_t i = 0U; i < size; i++)
+  {
+    q[i] = 0U;
+  }
+}
+
+/** 按指定交换方式做一次 SHA-256，结果放 Digest；给了期望值就比对 */
+static app_status_t sha_case(hal_hash_data_swapping_t swapping, const uint8_t *p_msg, uint32_t size,
+                             const uint8_t *p_expected, uint32_t *p_ok)
+{
+  hal_hash_config_t config;
+
+  config.data_swapping = swapping;
+  config.algorithm     = HAL_HASH_ALGO_SHA256;
+  if ((HAL_HASH_SetConfig(pHASH, &config) != HAL_OK)
+      || (HAL_HASH_Compute(pHASH, p_msg, size, Digest, DIGEST_SIZE, &ComputedSize, HASH_TIMEOUT_MS) != HAL_OK))
+  {
+    return EXEC_STATUS_ERROR;
+  }
+  if ((p_expected != NULL) && (p_ok != NULL))
+  {
+    *p_ok = (memcmp(Digest, p_expected, DIGEST_SIZE) == 0) ? 1U : 0U;
+  }
+  return EXEC_STATUS_OK;
+}
+
+
+/** ########## Step 3 ##########
+  * Deinitializes the HASH peripheral before leaving the scenario.
+  */
+app_status_t app_deinit(void)
+{
+  mx_example_hash_init();
+
+  PRINTF("[INFO] Step 3: HASH peripheral deinitialization COMPLETED.\n");
+
+  return EXEC_STATUS_OK;
+} /* end app_deinit */

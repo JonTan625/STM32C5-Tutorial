@@ -1,0 +1,20 @@
+--- sdk_ref/examples/hal/fdcan/two_boards_com_polling_controller/application/main.c
++++ sdk_mod/examples/hal/fdcan/two_boards_com_polling_controller/application/main.c
+@@ -64,8 +64,15 @@
+     {
+       ExecStatus = app_process();
+ 
+-      /* Report success: status LED remains turned on */
+-      led_on(MX_STATUS_LED);
++      /* Waiting is not a successful exchange. */
++      if (ExecStatus == EXEC_STATUS_OK)
++      {
++        led_on(MX_STATUS_LED);
++      }
++      else
++      {
++        led_off(MX_STATUS_LED);
++      }
+ 
+     } /* end while */
+ 

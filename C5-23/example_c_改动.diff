@@ -1,0 +1,51 @@
+--- official/application/example.c
++++ c5_23/application/example.c
+@@ -23,6 +23,16 @@
+ /* Private variables ---------------------------------------------------------*/
+ hal_exti_handle_t *pEXTI;  /* pointer referencing the EXTI handle from the generated code */
+ 
++/* C5 #23：每次从 Stop1 醒来，先记下几样东西再恢复时钟，结果用调试器 Watch 查看 */
++#define SRAM2_PROBE_ADDR  0x2000F000UL  /* SRAM2 后半段，本工程的数据和栈都不在这里（nm 核对） */
++uint32_t g_wake_count;        /* 醒来次数 */
++uint32_t g_cfgr1_after_wake;  /* 醒来后、mx_rccx_init 之前的 RCC_CFGR1（看 SWS 与 STOPWUCK） */
++uint32_t g_prev_mode;         /* HAL_PWR_GetPreviousSystemPowerMode() */
++uint32_t g_sram1_probe;       /* 普通全局变量，在 SRAM1 */
++uint32_t g_sram2_ecc_off;     /* FLASH_OPTSR2_CUR.SRAM2_ECC：1 = SRAM2 不做 ECC 校验 */
++uint32_t g_sram2_written;     /* 进 Stop1 前写进 SRAM2 的值 */
++uint32_t g_sram2_read;        /* 醒来后读回的值 */
++
+ /* Private functions prototype -----------------------------------------------*/
+ static void RCC_DisableBuses(void);
+ 
+@@ -77,6 +87,16 @@
+ {
+   app_status_t return_status = EXEC_STATUS_ERROR;
+ 
++  /* 进 Stop1 前各写一个记号：SRAM1 保持，SRAM2 已被 mx_pwr_init 关掉 Stop 保持。
++     只有 SRAM2 的 ECC 关着才去碰它，否则读到掉电后的乱码会触发 ECC 错误 */
++  g_sram1_probe = 0x5A5A0000UL | (g_wake_count & 0xFFFFUL);
++  g_sram2_ecc_off = (FLASH->OPTSR2_CUR & FLASH_OPTSR2_CUR_SRAM2_ECC_Msk) >> FLASH_OPTSR2_CUR_SRAM2_ECC_Pos;
++  if (g_sram2_ecc_off != 0U)
++  {
++    g_sram2_written = 0xA5A50000UL | (g_wake_count & 0xFFFFUL);
++    *(volatile uint32_t *)SRAM2_PROBE_ADDR = g_sram2_written;
++  }
++
+   /* Clear pending flags: Stop flag */
+   HAL_PWR_CleanPreviousSystemPowerMode();
+ 
+@@ -84,6 +104,14 @@
+   HAL_PWR_EnterStopMode(HAL_PWR_LOW_PWR_MODE_WFI, HAL_PWR_STOP1_MODE);
+ 
+   /* Execution resumes here when the MCU wakes up */
++  g_cfgr1_after_wake = RCC->CFGR1;  /* 先读，mx_rccx_init 会改它 */
++  g_prev_mode = (uint32_t)HAL_PWR_GetPreviousSystemPowerMode();
++  if (g_sram2_ecc_off != 0U)
++  {
++    g_sram2_read = *(volatile uint32_t *)SRAM2_PROBE_ADDR;
++  }
++  g_wake_count++;
++
+   if (HAL_PWR_GetPreviousSystemPowerMode() != HAL_PWR_SYSTEM_STOP1_MODE)
+   {
+     goto _app_process_exit;

@@ -1,0 +1,94 @@
+--- official/ll/adc/multi_channels_dma/application/stm32c5xx_ll_example.c
++++ c5_32/ll/adc/multi_channels_dma/application/stm32c5xx_ll_example.c
+@@ -24,8 +24,6 @@
+ #define ADC_ENABLE_TIMEOUT_MS             (2U)        /* MX_ADCx enable time-out value (unit: milli seconds)      */
+ #define ADC_DISABLE_TIMEOUT_MS            (2U)        /* MX_ADCx enable time-out value (unit: milli seconds)      */
+ #define ADC_CALIBRATION_TIMEOUT_MS        (500U)      /* MX_ADCx calibration time-out value (unit: milli seconds) */
+-#define ADC_VREFPLUS_VALUE                (VDD_VALUE) /* Assumption: pin Vref+ connected to Vdd at board level    */
+-#define ADC_BUFFER_SIZE                   (3U)        /* ADC converted data buffer size                           */
+ 
+ /* @user: The maximum data bus width used by DMA in STM32 devices is 64 bits.
+           Therefore, 8-byte alignment is the minimum recommended alignment for DMA buffers across STM32 devices. */
+@@ -34,13 +32,15 @@
+ /* Private macro -------------------------------------------------------------*/
+ /* Private variables ---------------------------------------------------------*/
+ /** Buffer to store converted raw data to be transferred through DMA.
+-  * - Non-cacheable memory for data cache consistency.
+   * - Aligned for DMA constraints.
+-  * - Mandatory with data cache enabled, harmless otherwise: portable across STM32 series.
+   * - Variable for the ADC conversion data (a count on the ADC scale).
+-  */
+-__attribute__((section("non_cacheable_area"), aligned(DMA_ACCESS_ALIGNMENT)))
+-uint16_t ADCRawData[ADC_BUFFER_SIZE];
++  * C5 #32 改写：
++  * - 声明为 volatile：DMA 写、CPU 读，编译器不知道有人在背后改这块内存。
++  * - 去掉官方的 section("non_cacheable_area")：STM32C542RC 没有数据缓存；该段在链接脚本里是孤儿段，
++  *   启动代码既不拷贝也不清零，放进去的缓冲区上电后是随机内容。改放普通 .bss，启动时清零。
++  */
++__attribute__((aligned(DMA_ACCESS_ALIGNMENT)))
++volatile uint16_t ADCRawData[ADC_BUFFER_SIZE];
+ 
+ /* Private functions prototype -----------------------------------------------*/
+ void mx_adcx_irqhandler(void);
+@@ -177,6 +177,15 @@
+   */
+ inline void ADC_StartConversion_DMA(void)
+ {
++  uint32_t i;
++
++  /* C5 #32 改写：先把缓冲区填成哨兵，DMA 写过的槽才分得出来；__DMB 保证填完再启动 DMA */
++  for (i = 0U; i < ADC_BUFFER_SIZE; i++)
++  {
++    ADCRawData[i] = ADC_SENTINEL;
++  }
++  __DMB();
++
+   LL_DMA_ConfigAddresses(MX_LPDMAX_CHY_CH,
+                          LL_ADC_DMA_GetRegAddr(MX_ADCx, LL_ADC_DMA_REG_REGULAR_DATA),
+                          (uint32_t)ADCRawData);
+@@ -189,7 +198,7 @@
+ #endif /* USE_LL_APP_ERROR */
+   LL_DMA_EnableChannel(MX_LPDMAX_CHY_CH);
+ 
+-  /* Enable ADC DMA transfer (unlimited for continuous mode) */
++  /* Enable ADC DMA transfer, one-shot (C5 #32): ADC and DMA stop together after the last of ADC_BUFFER_SIZE data */
+   LL_ADC_REG_SetDataTransferMode(MX_ADCx, LL_ADC_REG_DMA_TRANSFER_LIMITED);
+ 
+   /* Enables the MX_ADCx overrun interrupt when USE_LL_APP_ERROR == 1 */
+@@ -200,36 +209,6 @@
+ 
+   /* Start ADC conversion */
+   LL_ADC_REG_StartConversion(MX_ADCx);
+-}
+-
+-
+-/**
+-  *  Get the MX_ADCx GPIO data voltage in mV.
+-  *  uint16_t data voltage value in mV
+-  */
+-inline uint16_t ADC_GetDataGPIOmV(void)
+-{
+-  return (LL_ADC_CALC_DATA_TO_VOLTAGE(ADC_VREFPLUS_VALUE, ADCRawData[0U], LL_ADC_RESOLUTION_12B));
+-}
+-
+-
+-/**
+-  *  Get the MX_ADCx VrefInt data voltage in mV.
+-  *  uint16_t data voltage value in mV
+-  */
+-inline uint16_t ADC_GetDataVrefIntmV(void)
+-{
+-  return (LL_ADC_CALC_DATA_TO_VOLTAGE(ADC_VREFPLUS_VALUE, ADCRawData[1U], LL_ADC_RESOLUTION_12B));
+-}
+-
+-
+-/**
+-  *  Get the MX_ADCx temperature sensor data temperature in DegC.
+-  *  uint16_t data temperature value in DegC
+-  */
+-inline uint16_t ADC_GetDataTemperatureDegC(void)
+-{
+-  return (LL_ADC_CALC_TEMPERATURE(ADC_VREFPLUS_VALUE, ADCRawData[2U], LL_ADC_RESOLUTION_12B));
+ }
+ 
+ 

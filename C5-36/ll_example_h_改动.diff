@@ -1,0 +1,144 @@
+--- official/examples/ll/adc/multi_channels_dma/application/ll_example.h
++++ c5_36/examples/ll/adc/multi_channels_dma/application/ll_example.h
+@@ -3,6 +3,7 @@
+   * file           : ll_example.h
+   * brief          : Header for stm32ynxx_ll_example.c files.
+   *                  This file contains example-specific declarations to interface with example.c functions.
++  *                  C5 #36：两个模块的接口——采样模块（ADC + TIM6 + LPDMA 循环）与终端模块（USART2 中断收发）。
+   ******************************************************************************
+   *
+   * Copyright (c) 2026 STMicroelectronics.
+@@ -17,65 +18,98 @@
+ /* Define to prevent recursive inclusion -------------------------------------*/
+ #ifndef LL_EXAMPLE_H
+ #define LL_EXAMPLE_H
++
+ /* Includes ------------------------------------------------------------------*/
+ #include "mx_hal_def.h"       /* aliases to the target-specific generated code */
++#include "stm32c5xx_ll_tim.h"     /* C5 #36：TIM、DBGMCU、USART 为头文件内联接口，生成层未包含 */
++#include "stm32c5xx_ll_dbgmcu.h"
++#include "stm32c5xx_ll_usart.h"
++
+ #ifdef __cplusplus
+ extern "C" {
+ #endif /* __cplusplus */
++
+ /* Exported types ------------------------------------------------------------*/
++/* C5 #36：中断里只加计数，主循环只读；32 位对齐读写在 Cortex-M33 上是单次访问 */
++typedef struct
++{
++  volatile uint32_t halves;     /* 已写满的半块数（HT、TC 中断各加 1），START 时清零 */
++  volatile uint32_t dma_errors; /* DTEF / ULEF / USEF 次数 */
++  volatile uint32_t last_csr;   /* 最近一次出错时的 LPDMA_CxSR */
++} sampler_stats_t;
++
++typedef struct
++{
++  volatile uint32_t rx_bytes;     /* 收到的字节 */
++  volatile uint32_t rx_dropped;   /* 接收环满而丢弃的字节 */
++  volatile uint32_t rx_errors;    /* ORE / FE / NE 次数 */
++  volatile uint32_t tx_dropped;   /* 发送环放不下而整段丢弃的次数 */
++} term_stats_t;
++
+ /* Exported constants --------------------------------------------------------*/
+ #ifndef USE_LL_APP_TIMEOUT
+-#define USE_LL_APP_TIMEOUT 0U
++#define USE_LL_APP_TIMEOUT 1U
+ #endif /* USE_LL_APP_TIMEOUT */
+ 
+ #ifndef USE_LL_APP_ERROR
+ #define USE_LL_APP_ERROR 0U
+ #endif /* USE_LL_APP_ERROR */
+ 
++/* C5 #36：固定采样配置——TIM6 每 1 ms 触发一次，每次转换 PA4、VrefInt 两个位次 */
++#define SAMPLE_RATE_HZ  1000U
++#define ADC_RANKS       2U                          /* [0] PA4（CN8 A2），[1] VrefInt */
++#define BLOCK_SCANS     64U                         /* 每半块 64 轮 = 64 ms */
++#define HALF_SIZE       (ADC_RANKS * BLOCK_SCANS)   /* 半块 128 个半字 */
++#define ADC_BUFFER_SIZE (2U * HALF_SIZE)            /* 乒乓两半，共 256 个半字 = 512 字节 */
++
++#define TERM_BAUD       115200U
++#define TERM_RX_SIZE    128U  /* 必须是 2 的幂 */
++#define TERM_TX_SIZE    512U  /* 必须是 2 的幂 */
++
++/* DMA 写、CPU 读，所以是 volatile；下标 = 半块号 × HALF_SIZE + 轮数 × ADC_RANKS + 位次 */
++extern volatile uint16_t ADCRawData[ADC_BUFFER_SIZE];
++extern sampler_stats_t g_sampler;
++extern term_stats_t g_term;
++
+ /* Exported macros -----------------------------------------------------------*/
+ /* Exported functions ------------------------------------------------------- */
+ 
+-/** brief:  Activates the MX_ADCx instance.
+-  * retval: system status (see system_status_t)
++/** brief: Busy wait based on DWT->CYCCNT (DWT must be enabled first). */
++void DelayUs(uint32_t delay_us);
++
++/* ---- 采样模块 ---- */
++
++/** brief: Configure ADC (2 ranks, TIM6 trigger, DMA circular), TIM6 (1 kHz TRGO), then calibrate and enable ADC.
++  * retval: SYSTEM_OK or SYSTEM_PERIPHERAL_ERROR
+   */
+-system_status_t ADC_Activate(void);
++system_status_t Sampler_Init(void);
+ 
+-/** brief:  Calibrates the MX_ADCx instance.
+-  * retval: system status (see system_status_t)
++/** brief: Arm LPDMA (self-linked node), ADSTART, then start TIM6. g_sampler.halves restarts from 0. */
++void Sampler_Start(void);
++
++/** brief: Stop TIM6, ADSTP, drain the ADC data FIFO, abort the LPDMA channel.
++  * retval: 1 when everything stopped before time-out, else 0
+   */
+-system_status_t ADC_Calibrate(void);
++uint32_t Sampler_Stop(void);
+ 
+-/**
+-  * brief:  Start the MX_ADCx regular channels conversion in DMA mode.
+-  * retval: system status (see system_status_t)
++/** brief: 1 when the ADC overrun flag is set (ADC then stops issuing DMA requests). */
++uint32_t Sampler_IsOverrun(void);
++
++/* ---- 终端模块 ---- */
++
++/** brief: USART2 on PA2/PA3 (ST-LINK VCP), 115200 8N1, RX and TX by interrupt into ring buffers. */
++void Term_Init(void);
++
++/** brief: Take one received byte. retval: 1 when a byte was available, else 0 */
++uint32_t Term_GetByte(uint8_t *p_byte);
++
++/** brief: Queue len bytes for transmission, all or nothing.
++  * retval: 1 when queued, 0 when the TX ring had no room (g_term.tx_dropped is incremented)
+   */
+-void ADC_StartConversion_DMA(void);
+-
+-/** brief:  Get the MX_ADCx GPIO data in mV.
+-  * retval: data value in mV
+-  */
+-uint16_t ADC_GetDataGPIOmV(void);
+-
+-/** brief:  Get the MX_ADCx VrefInt data in mV.
+-  * retval: data value in mV
+-  */
+-uint16_t ADC_GetDataVrefIntmV(void);
+-
+-/** brief:  Get the MX_ADCx temperature sensor data in DegC.
+-  * retval: data value in DegC
+-  */
+-uint16_t ADC_GetDataTemperatureDegC(void);
+-
+-/** brief:  MX_ADCx conversion complete callback.
+-  */
+-void ADC_ConversionCompleteCallback(void);
+-
+-#if defined(USE_LL_APP_ERROR) && (USE_LL_APP_ERROR == 1)
+-/** brief:  MX_ADCx conversion complete callback. */
+-void ADC_ConversionErrorCallback(void);
+-#endif /* USE_LL_APP_ERROR */
++uint32_t Term_Write(const char *p, uint32_t len);
+ 
+ #ifdef __cplusplus
+ }
+ #endif /* __cplusplus */
++
+ #endif /* LL_EXAMPLE_H */

@@ -1,0 +1,11 @@
+--- official/NUCLEO-C542RC/generated/hal/stm32c5xx_hal_conf.h
++++ c5_25/NUCLEO-C542RC/generated/hal/stm32c5xx_hal_conf.h
+@@ -529,7 +529,7 @@
+   * @{
+   */
+ /* ########################## HAL_RTC Config #################################### */
+-#define USE_HAL_RTC_MODULE                      0U
++#define USE_HAL_RTC_MODULE                      1U
+ /**
+   * @}
+   */

@@ -1,0 +1,53 @@
+
+<工作目录>\examples\hal\gpio\toggle\NUCLEO-C542RC\cmake\build\release_GCC_NUCLEO-C542RC\hal_gpio_toggle.elf:     file format elf32-littlearm
+
+Sections:
+Idx Name          Size      VMA       LMA       File off  Algn
+  0 .vectors      000001a8  08020000  08020000  00001000  2**2
+                  CONTENTS, ALLOC, LOAD, READONLY, DATA
+  1 .text         00000c28  080201a8  080201a8  000011a8  2**2
+                  CONTENTS, ALLOC, LOAD, READONLY, CODE
+  2 .rodata       00000010  08020dd0  08020dd0  00001dd0  2**0
+                  CONTENTS, ALLOC, LOAD, READONLY, DATA
+  3 .ARM.extab    00000000  08020de0  08020de0  00002060  2**0
+                  CONTENTS, READONLY
+  4 .ARM          00000008  08020de0  08020de0  00001de0  2**2
+                  CONTENTS, ALLOC, LOAD, READONLY, DATA
+  5 .preinit_array 00000000  08020de8  08020de8  00002060  2**0
+                  CONTENTS, ALLOC, LOAD, DATA
+  6 .init_array   00000008  08020de8  08020de8  00001de8  2**2
+                  CONTENTS, ALLOC, LOAD, READONLY, DATA
+  7 .fini_array   00000008  08020df0  08020df0  00001df0  2**2
+                  CONTENTS, ALLOC, LOAD, READONLY, DATA
+  8 .copy.table   0000000c  08020df8  08020df8  00001df8  2**0
+                  CONTENTS, ALLOC, LOAD, READONLY, DATA
+  9 .data         00000060  20000000  08020e10  00002000  2**2
+                  CONTENTS, ALLOC, LOAD, DATA
+ 10 .zero.table   0000000c  08020e04  08020e04  00001e04  2**0
+                  CONTENTS, ALLOC, LOAD, READONLY, DATA
+ 11 .bss          00000170  20000060  08020e70  00002060  2**2
+                  ALLOC
+ 12 .heap         00000200  200001d0  08020e70  000021d0  2**0
+                  ALLOC
+ 13 .stack        00000400  200003d0  08020e70  000023d0  2**0
+                  ALLOC
+ 14 .ARM.attributes 00000036  00000000  00000000  00002060  2**0
+                  CONTENTS, READONLY
+ 15 .debug_frame  00001ce4  00000000  00000000  00002098  2**2
+                  CONTENTS, READONLY, DEBUGGING, OCTETS
+ 16 .debug_info   0001221f  00000000  00000000  00003d7c  2**0
+                  CONTENTS, READONLY, DEBUGGING, OCTETS
+ 17 .debug_abbrev 00002806  00000000  00000000  00015f9b  2**0
+                  CONTENTS, READONLY, DEBUGGING, OCTETS
+ 18 .debug_aranges 00000c78  00000000  00000000  000187a1  2**0
+                  CONTENTS, READONLY, DEBUGGING, OCTETS
+ 19 .debug_rnglists 00001127  00000000  00000000  00019419  2**0
+                  CONTENTS, READONLY, DEBUGGING, OCTETS
+ 20 .debug_line   0000a604  00000000  00000000  0001a540  2**0
+                  CONTENTS, READONLY, DEBUGGING, OCTETS
+ 21 .debug_str    000090e6  00000000  00000000  00024b44  2**0
+                  CONTENTS, READONLY, DEBUGGING, OCTETS
+ 22 .comment      00000043  00000000  00000000  0002dc2a  2**0
+                  CONTENTS, READONLY
+ 23 .debug_loclists 00005542  00000000  00000000  0002dc6d  2**0
+                  CONTENTS, READONLY, DEBUGGING, OCTETS

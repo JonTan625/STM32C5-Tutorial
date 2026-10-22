@@ -1,0 +1,170 @@
+{
+  "date": "2026-10-21",
+  "compiler": "GCC14.3.1+st.2",
+  "builds": [
+    {
+      "tag": "sdk_mod_app_v1_debug",
+      "text": 6888,
+      "data": 96,
+      "bss": 1904,
+      "bin_bytes": 6984,
+      "base": "0x8020000",
+      "initial_msp": "0x200007d0",
+      "reset_handler": "0x8020735",
+      "bin_sha256": "275e9cfc3c254f5f58fbb2a969130cdd3a7391bd805d7a1b58106e613a7fb253",
+      "elf_sha256": "dc3cd354f0d4d36d9eae8042b953419ad0261f29823aaa7eecbc90ee21339635",
+      "compiled_units": 19,
+      "warnings": 0,
+      "hardware_tested": false,
+      "erase_global_pages": [
+        16
+      ]
+    },
+    {
+      "tag": "sdk_mod_app_v1_release",
+      "text": 3600,
+      "data": 96,
+      "bss": 1904,
+      "bin_bytes": 3696,
+      "base": "0x8020000",
+      "initial_msp": "0x200007d0",
+      "reset_handler": "0x8020589",
+      "bin_sha256": "3889875f29cea5e1c9d4b19f59d3f871d17a7eedb1a431e73917f367e9dacb7a",
+      "elf_sha256": "08600a382060ef6ed63bc52bfbc23dd2a92d3dd299bb547f33a74a5e809e7a85",
+      "compiled_units": 19,
+      "warnings": 0,
+      "hardware_tested": false,
+      "erase_global_pages": [
+        16
+      ]
+    },
+    {
+      "tag": "sdk_mod_app_v2_debug",
+      "text": 6888,
+      "data": 96,
+      "bss": 1904,
+      "bin_bytes": 6984,
+      "base": "0x8020000",
+      "initial_msp": "0x200007d0",
+      "reset_handler": "0x8020735",
+      "bin_sha256": "2b38c3e28a492b78d07da6be117a62d05ad847dd98962697c27bc6b138c62b39",
+      "elf_sha256": "ba7e6ec5941c2febcf48b5026f44e091d3fc420c8c9d5754d6c5b261bbf36e20",
+      "compiled_units": 19,
+      "warnings": 0,
+      "hardware_tested": false,
+      "erase_global_pages": [
+        16
+      ]
+    },
+    {
+      "tag": "sdk_mod_app_v2_release",
+      "text": 3600,
+      "data": 96,
+      "bss": 1904,
+      "bin_bytes": 3696,
+      "base": "0x8020000",
+      "initial_msp": "0x200007d0",
+      "reset_handler": "0x8020585",
+      "bin_sha256": "8e275f70d5a3e5fb33f41fb629e2531a788a85cffdd20d4c4796596362d0c6ad",
+      "elf_sha256": "014e87236ff4a72ca160855008a38bc2aee559abc5d155dc96b9a93ebcd443ef",
+      "compiled_units": 19,
+      "warnings": 0,
+      "hardware_tested": false,
+      "erase_global_pages": [
+        16
+      ]
+    },
+    {
+      "tag": "sdk_mod_boot_v1_debug",
+      "text": 70830,
+      "data": 544,
+      "bss": 12648,
+      "bin_bytes": 71376,
+      "base": "0x8000000",
+      "initial_msp": "0x20003388",
+      "reset_handler": "0x80072b1",
+      "bin_sha256": "cbbba050afb161be501e1ba115c9930a4292b5c7aff66cb00ac2b88ae802cb58",
+      "elf_sha256": "ebf70432512820bed790b5a82af886fd1c0f3c685ba2252059257b8300287000",
+      "compiled_units": 144,
+      "warnings": 0,
+      "hardware_tested": false
+    },
+    {
+      "tag": "sdk_mod_boot_v1_release",
+      "text": 34184,
+      "data": 528,
+      "bss": 12600,
+      "bin_bytes": 34712,
+      "base": "0x8000000",
+      "initial_msp": "0x20003348",
+      "reset_handler": "0x8003b5d",
+      "bin_sha256": "acd44fbd0a79ab4c82b5ab933c4c123dae597e5662dc5c3454b9990db5842c08",
+      "elf_sha256": "ace7c96ed7f89d0470017e1c9a15730d8a0b3a3404b538e1c0da60762c047b4b",
+      "compiled_units": 144,
+      "warnings": 0,
+      "hardware_tested": false
+    },
+    {
+      "tag": "sdk_ref_app_v1_debug",
+      "text": 6848,
+      "data": 96,
+      "bss": 1896,
+      "bin_bytes": 6944,
+      "base": "0x8000000",
+      "initial_msp": "0x200007c8",
+      "reset_handler": "0x800070d",
+      "bin_sha256": "3df8a2ee775cfefec7bc6c5c47aebc23b74d289a0cec4c7ae9e1e45c07a2eaad",
+      "elf_sha256": "13d6cdc960f86bcdbd5d3a1ba69bfc329ef2b9f82790b1acbdb2bd496647bf5f",
+      "compiled_units": 19,
+      "warnings": 0,
+      "hardware_tested": false
+    },
+    {
+      "tag": "sdk_ref_app_v1_release",
+      "text": 3560,
+      "data": 96,
+      "bss": 1896,
+      "bin_bytes": 3656,
+      "base": "0x8000000",
+      "initial_msp": "0x200007c8",
+      "reset_handler": "0x8000561",
+      "bin_sha256": "d82194172c2625e4a205c402f9743db0acc6add9c730fc8b32d2af941f44fbbe",
+      "elf_sha256": "dd46746ebd26bddc36ca39c09c56aebdd457d439d1a4e21b4fbe136eae2b15df",
+      "compiled_units": 19,
+      "warnings": 0,
+      "hardware_tested": false
+    },
+    {
+      "tag": "sdk_ref_boot_v1_debug",
+      "text": 70726,
+      "data": 544,
+      "bss": 12648,
+      "bin_bytes": 71272,
+      "base": "0x8000000",
+      "initial_msp": "0x20003388",
+      "reset_handler": "0x8007249",
+      "bin_sha256": "cdb09fb4f172cae0d182290bb7df37fef6184f3b3c4a037846d19aa8cfa3b726",
+      "elf_sha256": "dc71eb772647a16438d7765e417f381b772bfdfdb93368ceaa83cdf6f573392b",
+      "compiled_units": 144,
+      "warnings": 0,
+      "hardware_tested": false
+    },
+    {
+      "tag": "sdk_ref_boot_v1_release",
+      "text": 34104,
+      "data": 528,
+      "bss": 12600,
+      "bin_bytes": 34632,
+      "base": "0x8000000",
+      "initial_msp": "0x20003348",
+      "reset_handler": "0x8003b09",
+      "bin_sha256": "7126637bd5eff5248bdcdaad5f5d44b1d1177d220c429b1b66581f991f829445",
+      "elf_sha256": "005370bdf73cef54c6fb20e98871c45d48ca3d5082657adc2e16ecd2628214fd",
+      "compiled_units": 144,
+      "warnings": 0,
+      "hardware_tested": false
+    }
+  ],
+  "probe": "      -------------------------------------------------------------------\n                       STM32CubeProgrammer v2.23.0                  \n      -------------------------------------------------------------------\n\n===== STLink Interface =====\nNo ST-Link detected!\n\n",
+  "hardware_tested": false
+}

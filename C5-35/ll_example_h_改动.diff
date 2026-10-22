@@ -1,0 +1,79 @@
+--- official/examples/ll/opamp/programmable_gain_amplifier/application/ll_example.h
++++ c5_35/examples/ll/opamp/programmable_gain_amplifier/application/ll_example.h
+@@ -20,6 +20,8 @@
+ 
+ /* Includes ------------------------------------------------------------------*/
+ #include "mx_hal_def.h"       /* aliases to the target-specific generated code */
++#include "stm32c5xx_ll_dac.h"  /* C5 #35：生成层没有 DAC、COMP，LL 为头文件内联接口，无需新增 .c */
++#include "stm32c5xx_ll_comp.h"
+ 
+ #ifdef __cplusplus
+ extern "C" {
+@@ -35,35 +37,52 @@
+ #define USE_LL_APP_ERROR 0U
+ #endif /* USE_LL_APP_ERROR */
+ 
++/* C5 #35：DAC1 两个通道都只接片内外设，COMP1 只用一路（ES0676 §2.4.1：Rev Z 芯片 COMP1、COMP2 不能同时使能） */
++#define MX_DACx            DAC1
++#define MX_COMPx           COMP1
++#define ADC_AVG_COUNT      (16U)  /* 每次回读平均次数 */
++
+ /* Exported macros -----------------------------------------------------------*/
+ /* Exported functions ------------------------------------------------------- */
+ 
+-/** brief:  Starts the MX_OPAMPx instance.
++/** brief: Busy wait based on DWT->CYCCNT (DWT must be enabled first).
+   */
+-void OPAMP_Start(void);
++void DelayUs(uint32_t delay_us);
+ 
+-/** brief:  Activates the MX_ADCx instance.
+-  * retval: system status (see system_status_t)
++/** brief: Configure MX_ADCx: PA6 (ADC1_IN6, OPAMP1_VOUT) then VrefInt, software trigger, single sequence.
+   */
+-system_status_t ADC_Activate(void);
++void ADC_Config(void);
+ 
+-/** brief:  Calibrates the MX_ADCx instance.
+-  * retval: system status (see system_status_t)
++/** brief: Calibrate and enable MX_ADCx.
++  * retval: 1 on success, 0 on time-out
+   */
+-system_status_t ADC_Calibrate(void);
++uint32_t ADC_CalibrateEnable(void);
+ 
+-/** brief:  Starts the MX_ADCx instance conversion in interrupt mode.
++/** brief: Run ADC_AVG_COUNT sequences, return the rounded averages of the two ranks.
++  * retval: 0 OK, 1 time-out, 2 overrun
+   */
+-void ADC_StartConversion_IT(void);
++uint32_t ADC_ReadAvg(uint32_t *p_pa6_avg, uint32_t *p_vrefint_avg);
+ 
+-/** brief:  Get the MX_ADCx GPIO data in mV.
+-  * retval: data value in mV
++/** brief: Configure both DAC1 channels: buffer off, on-chip peripherals only (MODEx = 011).
+   */
+-uint16_t ADC_GetDataGPIOmV(void);
++void DAC_Config(void);
+ 
+-/** brief:  MX_ADCx conversion complete callback.
++/** brief: Enable one DAC1 channel and wait for its DACxRDY flag.
++  * retval: 1 when the flag was seen before time-out, else 0
+   */
+-void ADC_ConversionCompleteCallback(void);
++uint32_t DAC_StartChannel(uint32_t channel);
++
++/** brief: Write a 12-bit right-aligned code (TENx = 0); read DOR back after the caller's settling wait.
++  */
++void DAC_Write(uint32_t channel, uint32_t code);
++
++/** brief: Reconfigure MX_COMPx (disabled first), then enable it and wait for the scaler.
++  */
++void COMP_Restart(uint32_t input_minus, uint32_t hysteresis);
++
++/** brief: Reconfigure OPAMP1 (disabled first) as follower (gain 1) or non-inverting PGA, input DAC1 channel 2.
++  */
++void OPAMP_Restart(uint32_t gain);
+ 
+ #ifdef __cplusplus
+ }

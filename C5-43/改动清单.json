@@ -1,0 +1,36 @@
+{
+  "sdk_archive": "STM32C5-MCU-HAL2.1.0_12-08-2026_06-37-21.zip",
+  "sdk_sha256": "7bd849539c665226dcb5b10ab3d0858ce59d79ed51f9ed289357b2ba4435bb8b",
+  "files": [
+    {
+      "relative_path": "middleware/open_bootloader/interfaces/openbl_itf_common.c",
+      "package_file": "改写文件/middleware/open_bootloader/interfaces/openbl_itf_common.c",
+      "official_sha256": "d90db7a703fb5ae90a4926fb5361d1fae21816ee18b7c0075ec9e87a0726769c",
+      "teaching_sha256": "bf9c204e66a643aad2359cbe15bb8ce9262f2f34cf7c83678f91692f8c64fd2c"
+    },
+    {
+      "relative_path": "examples/middleware/open_bootloader/demo/NUCLEO-C542RC/user_modifiable/Device/STM32C542RCT6/stm32c542xc_flash.ld",
+      "package_file": "改写文件/examples/middleware/open_bootloader/demo/NUCLEO-C542RC/user_modifiable/Device/STM32C542RCT6/stm32c542xc_flash.ld",
+      "official_sha256": "a705a813a146c1303bb3d07633931b44c7fcff8cdac334881861ae051a44d6de",
+      "teaching_sha256": "b1b084896e8d085ca5ecc4e8bb8ecbb1181b9a330ce500a2c6a46ff8c815dae3"
+    },
+    {
+      "relative_path": "examples/hal/gpio/toggle/NUCLEO-C542RC/user_modifiable/Device/STM32C542RCT6/stm32c542xc_flash.ld",
+      "package_file": "改写文件/examples/hal/gpio/toggle/NUCLEO-C542RC/user_modifiable/Device/STM32C542RCT6/stm32c542xc_flash.ld",
+      "official_sha256": "a705a813a146c1303bb3d07633931b44c7fcff8cdac334881861ae051a44d6de",
+      "teaching_sha256": "539aecfe612bb7514f52874206ddd5d440fd11cf939f6bc1051d5522793b90f1"
+    },
+    {
+      "relative_path": "examples/hal/gpio/toggle/application/main.c",
+      "package_file": "改写文件/examples/hal/gpio/toggle/application/main.c",
+      "official_sha256": "8e184d1ad84ab313f43eb77ae9446949b5091014a27b8bbb6fc429d23bb37bd5",
+      "teaching_sha256": "944412fb7c39f5ead7e70ce8e11644efd68ea90aa2d521733f0adeba96d98bba"
+    },
+    {
+      "relative_path": "examples/hal/gpio/toggle/NUCLEO-C542RC/cmake/CMakeLists.txt",
+      "package_file": "改写文件/examples/hal/gpio/toggle/NUCLEO-C542RC/cmake/CMakeLists.txt",
+      "official_sha256": "152d27518b39d0d0775dad0d803e646b2bad8f8fe1dece144bfca5533afd7759",
+      "teaching_sha256": "b85b7b4f12ab7d3e23dbd7a4dd55f6242967bcbd8a57c59d76d1832e380f44b3"
+    }
+  ]
+}

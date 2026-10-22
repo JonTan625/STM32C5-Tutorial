@@ -1,0 +1,18 @@
+{
+  "sdk_archive": "STM32C5-MCU-HAL2.1.0_12-08-2026_06-37-21.zip",
+  "sdk_sha256": "7bd849539c665226dcb5b10ab3d0858ce59d79ed51f9ed289357b2ba4435bb8b",
+  "files": [
+    {
+      "relative_path": "examples/middleware/usbx/device_hid_mouse_no_os/application/example.c",
+      "package_file": "application/example.c",
+      "official_sha256": "9f87b68e5c7619b7130295700161c907f4b3ada531070d7f6ea7e73f15cf6929",
+      "teaching_sha256": "e44356524f60f3544c94ea528d479b8e4a1ba886bd7ffa94e757629ea71b2ac5"
+    },
+    {
+      "relative_path": "examples/middleware/usbx/device_hid_mouse_no_os/NUCLEO-C542RC/generated/middleware/usbx/mx_usbx_device_hid_mouse.c",
+      "package_file": "NUCLEO-C542RC/generated/middleware/usbx/mx_usbx_device_hid_mouse.c",
+      "official_sha256": "5b8228224a7fb8480fe20e289c6a3f54e20f643caa848ceede0081ac15092779",
+      "teaching_sha256": "bc2c717e2c59bc44ec7029a04584cbd1aefcea189ef2c7899dab376669fc0636"
+    }
+  ]
+}

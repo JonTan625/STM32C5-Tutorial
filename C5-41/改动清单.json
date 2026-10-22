@@ -1,0 +1,42 @@
+{
+  "sdk_archive": "STM32C5-MCU-HAL2.1.0_12-08-2026_06-37-21.zip",
+  "sdk_sha256": "7bd849539c665226dcb5b10ab3d0858ce59d79ed51f9ed289357b2ba4435bb8b",
+  "files": [
+    {
+      "relative_path": "examples/hal/fdcan/two_boards_com_polling_controller/application/example.c",
+      "package_file": "A_controller/example.c",
+      "official_sha256": "c0b45b47734c5fc80b205689498f224e70fb5e113c7a09b5121ba7a2a7611a5d",
+      "teaching_sha256": "ae87fcef7ab6e506d3dd73e5cb7d516dd8bda2322c7b7e449c5cbd747809a878"
+    },
+    {
+      "relative_path": "examples/hal/fdcan/two_boards_com_polling_controller/application/main.c",
+      "package_file": "A_controller/main.c",
+      "official_sha256": "14e0dcf107f2faa03a34f4ab24fd035780d89b8e5973efab8aeff36d63ffd338",
+      "teaching_sha256": "28189533bbbbc5c0bfc2611876305c4f78301e525076f315d70555d190f80f07"
+    },
+    {
+      "relative_path": "examples/hal/fdcan/two_boards_com_polling_controller/NUCLEO-C542RC/cmake/cmake/flags.cmake",
+      "package_file": "A_controller/flags.cmake",
+      "official_sha256": "2a3f8e4e5e710150359e9516250aa7ffe28f04117c277efb53487d40c347967b",
+      "teaching_sha256": "c703ff40fcdcd589a14aa55423582f2aef00c86a0f4d181b763df79dfab9d4a8"
+    },
+    {
+      "relative_path": "examples/hal/fdcan/two_boards_com_polling_responder/application/example.c",
+      "package_file": "B_responder/example.c",
+      "official_sha256": "dd9dfd2dd39acb7af6f8eec2643d959437f890f3c2425611840dd6ed7b988b7f",
+      "teaching_sha256": "ae87fcef7ab6e506d3dd73e5cb7d516dd8bda2322c7b7e449c5cbd747809a878"
+    },
+    {
+      "relative_path": "examples/hal/fdcan/two_boards_com_polling_responder/application/main.c",
+      "package_file": "B_responder/main.c",
+      "official_sha256": "e8b77d1d8bd4ba6e1297add3ffb1fc9078bee7c100d1559214c16e3dc9f7049a",
+      "teaching_sha256": "074c114ac88f4602784785199627cf53dd548075dc4a8b821bc92513ae42492b"
+    },
+    {
+      "relative_path": "examples/hal/fdcan/two_boards_com_polling_responder/NUCLEO-C542RC/cmake/cmake/flags.cmake",
+      "package_file": "B_responder/flags.cmake",
+      "official_sha256": "2a3f8e4e5e710150359e9516250aa7ffe28f04117c277efb53487d40c347967b",
+      "teaching_sha256": "2ab5cdc7a9e376850785a4861f3c19c34f54c68d0cc4a6fba434b53c72c7e399"
+    }
+  ]
+}

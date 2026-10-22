@@ -1,0 +1,14 @@
+[
+  {
+    "official_path": "examples/hal/adc/single_conversion_trigger_sw_it/application/example.c",
+    "package_path": "example.c",
+    "diff": "example_c_改动.diff",
+    "sha256": "7beffc15bb24524facbb6ec7ff983bc7fd13aadddb86b2a143bf40bf245d89e1"
+  },
+  {
+    "official_path": "examples/hal/adc/single_conversion_trigger_sw_it/NUCLEO-C542RC/cmake/cmake/flags.cmake",
+    "package_path": "flags.cmake",
+    "diff": "flags_cmake_改动.diff",
+    "sha256": "f0935fe9b611a94f9f24a1613246ec4c3ba0ab67decb526aebf9d61f538e5ae4"
+  }
+]

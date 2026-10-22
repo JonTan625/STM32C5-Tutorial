@@ -1,0 +1,126 @@
+{
+  "base": "examples/hal/adc/single_conversion_trigger_sw_it",
+  "project_dir": "examples/hal/adc/c5_46_alarm_terminal",
+  "files": [
+    {
+      "path": "NUCLEO-C542RC/cmake/cmake/components.cmake",
+      "kind": "修改",
+      "sha256": "e098d10564f8709924f7712a08d4e474a8fd674e90f79a926622f8025dc06d84",
+      "diff": "差异/NUCLEO-C542RC__cmake__cmake__components.cmake.diff",
+      "added_lines": 10,
+      "removed_lines": 0
+    },
+    {
+      "path": "NUCLEO-C542RC/cmake/cmake/files.cmake",
+      "kind": "修改",
+      "sha256": "a36b442d95c992b6b7c3f8bda9a1c214625a291f0b0803465e3dd41f3bc09e13",
+      "diff": "差异/NUCLEO-C542RC__cmake__cmake__files.cmake.diff",
+      "added_lines": 2,
+      "removed_lines": 2
+    },
+    {
+      "path": "NUCLEO-C542RC/cmake/cmake/flags.cmake",
+      "kind": "修改",
+      "sha256": "6a7ef8544955f71a8278da4535d4e36c6b2edd3141d5a75026633f5a3ce97311",
+      "diff": "差异/NUCLEO-C542RC__cmake__cmake__flags.cmake.diff",
+      "added_lines": 6,
+      "removed_lines": 0
+    },
+    {
+      "path": "NUCLEO-C542RC/generated/hal/stm32_external_env.h",
+      "kind": "修改",
+      "sha256": "5d406e6ba0170bcfbeca7169d5b065ae4b52051c71e03f65e183c6113cc20973",
+      "diff": "差异/NUCLEO-C542RC__generated__hal__stm32_external_env.h.diff",
+      "added_lines": 12,
+      "removed_lines": 0
+    },
+    {
+      "path": "NUCLEO-C542RC/generated/hal/stm32c5xx_hal_conf.h",
+      "kind": "修改",
+      "sha256": "0db654ff669e3b7d54aa571acfabe94bd791e1ce18764ce7bcbfb970bfaa4c54",
+      "diff": "差异/NUCLEO-C542RC__generated__hal__stm32c5xx_hal_conf.h.diff",
+      "added_lines": 3,
+      "removed_lines": 3
+    },
+    {
+      "path": "NUCLEO-C542RC/user_modifiable/Device/STM32C542RCT6/stm32c542xc_flash.ld",
+      "kind": "修改",
+      "sha256": "4f8f245fd2ae35e6b6b05df763cbdc2d63dc26e5e738cc98ed885949f112a40b",
+      "diff": "差异/NUCLEO-C542RC__user_modifiable__Device__STM32C542RCT6__stm32c542xc_flash.ld.diff",
+      "added_lines": 1,
+      "removed_lines": 1
+    },
+    {
+      "path": "application/example.c",
+      "kind": "修改",
+      "sha256": "e69209f8589ed7e383acdff9c5145df9b3717d1763ba620e7dd7a45052c23ecf",
+      "diff": "差异/application__example.c.diff",
+      "added_lines": 590,
+      "removed_lines": 137
+    },
+    {
+      "path": "application/main.c",
+      "kind": "修改",
+      "sha256": "577a46c9e33ae51acad25f14052b593db00524fab363dec338bb1ff3708d15be",
+      "diff": "差异/application__main.c.diff",
+      "added_lines": 1,
+      "removed_lines": 7
+    },
+    {
+      "path": "application/p46.h",
+      "kind": "新增",
+      "sha256": "11acdb23d8ad7395d33d02fbdf0e37cd9798ed1592d34347e26c2b18eb158a19",
+      "diff": "差异/application__p46.h.diff",
+      "added_lines": 159,
+      "removed_lines": 0
+    },
+    {
+      "path": "application/p46_alarm.c",
+      "kind": "新增",
+      "sha256": "017fbc6ff0c13a9c7b70b7ae1e1359e6d35a4fedaafa35e99aa723a0229c2ceb",
+      "diff": "差异/application__p46_alarm.c.diff",
+      "added_lines": 44,
+      "removed_lines": 0
+    },
+    {
+      "path": "application/p46_config.c",
+      "kind": "新增",
+      "sha256": "88880188ecefaa3a4f2409549233d6d500e354dd75ae396f8c5104ce7e227b1b",
+      "diff": "差异/application__p46_config.c.diff",
+      "added_lines": 213,
+      "removed_lines": 0
+    },
+    {
+      "path": "application/p46_health.c",
+      "kind": "新增",
+      "sha256": "f36eff6067fd41e03fb9b07f8be615c3438c53080d1cba1665428e0d6317054a",
+      "diff": "差异/application__p46_health.c.diff",
+      "added_lines": 124,
+      "removed_lines": 0
+    },
+    {
+      "path": "application/p46_sampler.c",
+      "kind": "新增",
+      "sha256": "d3fde77ec162c353cf33c918628900ab3f6c770d9521d5c99464687d79e2d983",
+      "diff": "差异/application__p46_sampler.c.diff",
+      "added_lines": 186,
+      "removed_lines": 0
+    },
+    {
+      "path": "application/p46_terminal.c",
+      "kind": "新增",
+      "sha256": "7865906c779271efec79ce11dea7684e1ab0f2f4edcde3f657577b5c72b1ebb5",
+      "diff": "差异/application__p46_terminal.c.diff",
+      "added_lines": 192,
+      "removed_lines": 0
+    },
+    {
+      "path": "application/p46_time.c",
+      "kind": "新增",
+      "sha256": "18706a9c046939c9d80cfedb4fa62e494d9c84187ac7e9919f794afb4374052a",
+      "diff": "差异/application__p46_time.c.diff",
+      "added_lines": 208,
+      "removed_lines": 0
+    }
+  ]
+}

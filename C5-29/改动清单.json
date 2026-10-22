@@ -1,0 +1,20 @@
+[
+  {
+    "official_path": "examples/middleware/stfcf/cipher_aes_gcm/application/c5_29_sw_gcm.h",
+    "package_path": "c5_29_sw_gcm.h",
+    "sha256": "bd976afd86e49084d3ba0cc62f3df03c17bdf1a780f2d1b82f56fcc07b86db39",
+    "diff": "新增文件"
+  },
+  {
+    "official_path": "examples/middleware/stfcf/cipher_aes_gcm/application/example.c",
+    "package_path": "example.c",
+    "sha256": "7b70e8adbcf1101c2385fb7bff64c51acf7d2ec6b85e0272284db61f11a712bc",
+    "diff": "example_c_改动.diff"
+  },
+  {
+    "official_path": "examples/middleware/stfcf/cipher_aes_gcm/NUCLEO-C542RC/cmake/cmake/flags.cmake",
+    "package_path": "flags.cmake",
+    "sha256": "ffd540e31d5bcf47513be9738b82f25f4c9aa0488f99599eb586f14c6b98cdfd",
+    "diff": "flags_cmake_改动.diff"
+  }
+]

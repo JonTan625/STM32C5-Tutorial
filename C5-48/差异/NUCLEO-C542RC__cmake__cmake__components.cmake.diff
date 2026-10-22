@@ -1,0 +1,26 @@
+--- official/NUCLEO-C542RC/cmake/cmake/components.cmake
++++ c5_46/NUCLEO-C542RC/cmake/cmake/components.cmake
+@@ -5,6 +5,11 @@
+   list(APPEND CMSIS_COMPONENTS_LIST "Cvendor:STMicroelectronics#Cclass:Board Part#Cgroup:STM32CubeMX2 Config#Csub:LED#Cversion:1.0.0#generated:true")
+   list(APPEND CMSIS_COMPONENTS_LIST "Cvendor:STMicroelectronics#Cclass:CMSIS#Cgroup:CORE#Cversion:6.2.0")
+   list(APPEND CMSIS_COMPONENTS_LIST "Cvendor:STMicroelectronics#Cclass:Device#Cgroup:STM32 HAL#Csub:ADC#Cversion:2.0.1")
++  list(APPEND CMSIS_COMPONENTS_LIST "Cvendor:STMicroelectronics#Cclass:Device#Cgroup:STM32 HAL#Csub:FLASH#Cversion:2.0.1")
++  list(APPEND CMSIS_COMPONENTS_LIST "Cvendor:STMicroelectronics#Cclass:Device#Cgroup:STM32 HAL#Csub:IWDG#Cversion:2.0.0")
++  list(APPEND CMSIS_COMPONENTS_LIST "Cvendor:STMicroelectronics#Cclass:Device#Cgroup:STM32 HAL#Csub:RTC#Cversion:2.0.1")
++  list(APPEND CMSIS_COMPONENTS_LIST "Cvendor:STMicroelectronics#Cclass:Device#Cgroup:STM32 LL#Csub:IWDG#Cversion:2.0.0")
++  list(APPEND CMSIS_COMPONENTS_LIST "Cvendor:STMicroelectronics#Cclass:Device#Cgroup:STM32 LL#Csub:RTC#Cversion:2.0.0")
+   list(APPEND CMSIS_COMPONENTS_LIST "Cvendor:STMicroelectronics#Cclass:Device#Cgroup:STM32 HAL#Csub:CORTEX#Cversion:2.0.0")
+   list(APPEND CMSIS_COMPONENTS_LIST "Cvendor:STMicroelectronics#Cclass:Device#Cgroup:STM32 HAL#Csub:Core#Cversion:2.0.0")
+   list(APPEND CMSIS_COMPONENTS_LIST "Cvendor:STMicroelectronics#Cclass:Device#Cgroup:STM32 HAL#Csub:DMA#Cversion:2.1.0")
+@@ -53,6 +58,11 @@
+   list(APPEND CMSIS_COMPONENTS_LIST "Cvendor:STMicroelectronics#Cclass:Board Part#Cgroup:STM32CubeMX2 Config#Csub:LED#Cversion:1.0.0#generated:true")
+   list(APPEND CMSIS_COMPONENTS_LIST "Cvendor:STMicroelectronics#Cclass:CMSIS#Cgroup:CORE#Cversion:6.2.0")
+   list(APPEND CMSIS_COMPONENTS_LIST "Cvendor:STMicroelectronics#Cclass:Device#Cgroup:STM32 HAL#Csub:ADC#Cversion:2.0.1")
++  list(APPEND CMSIS_COMPONENTS_LIST "Cvendor:STMicroelectronics#Cclass:Device#Cgroup:STM32 HAL#Csub:FLASH#Cversion:2.0.1")
++  list(APPEND CMSIS_COMPONENTS_LIST "Cvendor:STMicroelectronics#Cclass:Device#Cgroup:STM32 HAL#Csub:IWDG#Cversion:2.0.0")
++  list(APPEND CMSIS_COMPONENTS_LIST "Cvendor:STMicroelectronics#Cclass:Device#Cgroup:STM32 HAL#Csub:RTC#Cversion:2.0.1")
++  list(APPEND CMSIS_COMPONENTS_LIST "Cvendor:STMicroelectronics#Cclass:Device#Cgroup:STM32 LL#Csub:IWDG#Cversion:2.0.0")
++  list(APPEND CMSIS_COMPONENTS_LIST "Cvendor:STMicroelectronics#Cclass:Device#Cgroup:STM32 LL#Csub:RTC#Cversion:2.0.0")
+   list(APPEND CMSIS_COMPONENTS_LIST "Cvendor:STMicroelectronics#Cclass:Device#Cgroup:STM32 HAL#Csub:CORTEX#Cversion:2.0.0")
+   list(APPEND CMSIS_COMPONENTS_LIST "Cvendor:STMicroelectronics#Cclass:Device#Cgroup:STM32 HAL#Csub:Core#Cversion:2.0.0")
+   list(APPEND CMSIS_COMPONENTS_LIST "Cvendor:STMicroelectronics#Cclass:Device#Cgroup:STM32 HAL#Csub:DMA#Cversion:2.1.0")

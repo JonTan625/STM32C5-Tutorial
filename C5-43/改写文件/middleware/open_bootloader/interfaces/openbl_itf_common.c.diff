@@ -1,0 +1,52 @@
+--- sdk_ref/middleware/open_bootloader/interfaces/openbl_itf_common.c
++++ sdk_mod/middleware/open_bootloader/interfaces/openbl_itf_common.c
+@@ -84,14 +84,41 @@
+   * @param  address The address where the function will jump.
+   * @retval None.
+   */
++/* GCC / Cortex-M33 教学跳转：切MSP以后不得执行C函数尾声。 */
++__attribute__((naked, noreturn, noinline))
++static void openbl43_branch(uint32_t stack __attribute__((unused)),
++                            uint32_t reset __attribute__((unused)))
++{
++  __asm volatile (
++    "movs r2, #0\n"
++    "msr control, r2\n"
++    "msr basepri, r2\n"
++    "msr msplim, r2\n"
++    "msr psplim, r2\n"
++    "msr msp, r0\n"
++    "dsb\n"
++    "isb\n"
++    "cpsie i\n"
++    "bx r1\n");
++}
++
+ void OPENBL_Common_JumpToAddress(uint32_t address)
+ {
+-  Function_Pointer jump_to_address;
+-
+-  jump_to_address = (Function_Pointer)(*(__IO uint32_t *)(address + 4U));
+-
+-  /* Initialize user application's stack pointer */
+-  OPENBL_Common_SetMsp(*(__IO uint32_t *) address);
+-
+-  jump_to_address();
++  const uint32_t stack = *(__IO uint32_t *)address;
++  const uint32_t reset = *(__IO uint32_t *)(address + 4U);
++  __disable_irq();
++  SysTick->CTRL = 0U;
++  SysTick->LOAD = 0U;
++  SysTick->VAL = 0U;
++  /* CMSIS数组覆盖外部中断寄存器；未实现位写入无效。 */
++  for (uint32_t i = 0U; i < sizeof(NVIC->ICER) / sizeof(NVIC->ICER[0]); i++)
++  {
++    NVIC->ICER[i] = 0xFFFFFFFFU;
++    NVIC->ICPR[i] = 0xFFFFFFFFU;
++  }
++  SCB->ICSR = SCB_ICSR_PENDSTCLR_Msk | SCB_ICSR_PENDSVCLR_Msk;
++  SCB->VTOR = address;
++  __DSB();
++  __ISB();
++  openbl43_branch(stack, reset);
+ }

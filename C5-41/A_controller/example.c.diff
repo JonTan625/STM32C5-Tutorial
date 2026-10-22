@@ -1,0 +1,489 @@
+--- sdk_ref/examples/hal/fdcan/two_boards_com_polling_controller/application/example.c
++++ sdk_mod/examples/hal/fdcan/two_boards_com_polling_controller/application/example.c
+@@ -1,239 +1,269 @@
+ /**
+   ******************************************************************************
+   * file           : example.c
+-  * brief          : The controller's application handling a data transfer over
+-  *                  FDCAN in polling mode with HAL API.
++  * brief          : #41 two-board FDCAN request/echo, polling and bounded waits.
+   ******************************************************************************
+-  *
+   * Copyright (c) 2026 STMicroelectronics.
+   * All rights reserved.
+-  *
+   * This software is licensed under terms that can be found in the LICENSE file
+   * in the root directory of this software component.
+   * If no LICENSE file comes with this software, it is provided AS-IS.
+-  *
++  * Teaching adaptation by JonTan, 2026-10-20.
+   ******************************************************************************
+   */
+-
+-/* Includes ------------------------------------------------------------------*/
+ #include "example.h"
+-#include <string.h> /* importing memcmp and memset functions */
+-
+-/* Private typedef -----------------------------------------------------------*/
+-/* Private define ------------------------------------------------------------*/
+-/* @user: set the maximum number of attempts to complete a data transfer between the two boards */
+-#define MAX_COM_ATTEMPTS 10U
+-/* @user: set the timeout period in milliseconds for transmitting and receiving data */
+-#define FDCAN_COM_TIMEOUT 1000U
+-/* @user: define the controller requested Frame ID in Standard Mode (11bits) */
+-#define FDCAN_CONTROLLER_FRAME_ID 0x101
+-/* @user: define the responder requested Frame ID in Standard Mode (11bits) */
+-#define FDCAN_RESPONDER_FRAME_ID 0x102
+-/* Data size of the TX and RX FDCAN frames in bytes. */
+-#define MSG_DATA_LENGTH   HAL_FDCAN_DATA_LEN_CAN_FDCAN_8_BYTE
+-/* Data size of the TX FDCAN buffer in bytes */
+-#define TX_BUFFER_SIZE       8U
+-/** Data size of the RX FDCAN buffer in bytes to be set to maximum frame size.
+-  * @user: For CAN Classical frame maximum bytes size is 8, for FDCAN frame maximum bytes size is 64.
+-  */
+-#define RX_BUFFER_SIZE       64U
+-
+-/* Private macro -------------------------------------------------------------*/
+-/* Private variables ---------------------------------------------------------*/
+-hal_fdcan_handle_t *pFDCAN;    /* pointer referencing the FDCAN handle from the generated code */
+-
+-/** BufferA, BufferB: fixed-size buffers to transfer alternately.
+-  * @user: it is possible to modify the messages content and length.
+-  */
+-static const uint8_t BufferA[TX_BUFFER_SIZE] = {0x10, 0x32, 0x54, 0x76, 0x98, 0xBA, 0xDC, 0xFE};
+-static const uint8_t BufferB[TX_BUFFER_SIZE] = {0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77};
+-
+-/* Pointer to the buffer used for transmission */
+-const uint8_t *pTxData = NULL;
+-
+-/* Buffer used for reception */
+-uint8_t RxBuffer[RX_BUFFER_SIZE] = {0U};
+-
+-
+-/* Private functions prototype -----------------------------------------------*/
+-static inline void UpdateBuffers(void);
+-static app_status_t HandleTransferCplt(hal_fdcan_rx_header_t rx_element_header);
+-static app_status_t HandleTransferError(uint32_t hal_status, uint32_t fdcan_error_code);
+-
+-/** --------------------------------------------------------------------------------------------------------------
+-  * Applicative code demonstrating a data transfer between two boards based on the FDCAN-bus protocol, in polling mode.
+-  * This is the code of the controller board.
+-  * --------------------------------------------------------------------------------------------------------------
+-  */
+-
+-/** ########## Step 1 ##########
+-  * The init of the FDCAN instance is triggered by the applicative code.
+-  */
++#include <string.h>
++
++#ifndef NODE_CONTROLLER
++#error "Define NODE_CONTROLLER=1 for A, or =0 for B in flags.cmake"
++#endif
++#if NODE_CONTROLLER
++#define NODE_LABEL "A"
++#define TX_ID 0x101U
++#define RX_ID 0x102U
++#else
++#define NODE_LABEL "B"
++#define TX_ID 0x102U
++#define RX_ID 0x101U
++#endif
++#define TX_TIMEOUT_MS       100U
++#define REPLY_TIMEOUT_MS   1000U
++#define SEND_PAUSE_MS      1000U
++#define DATA_BYTES            8U
++
++hal_fdcan_handle_t *pFDCAN;
++volatile uint32_t g_seq, g_tx_ok, g_rx_ok, g_exchange_ok, g_waits, g_fault;
++volatile uint32_t g_psr, g_ecr, g_cccr, g_nbtp, g_dbtp, g_txbrp;
++volatile uint32_t g_tec, g_rec, g_lec, g_dlec, g_ew, g_ep, g_bo;
++volatile uint32_t g_pe2, g_abort_status, g_stop_status;
++volatile hal_fdcan_rx_header_t g_last_rx;
++uint8_t g_rx[64];
++static uint8_t tx_data[DATA_BYTES];
++
++static void Snapshot(void)
++{
++  /* PSR的LEC/DLEC和ECR的CEL有读副作用，每次日志只抓一份。 */
++  g_psr = FDCAN1->PSR;
++  g_ecr = FDCAN1->ECR;
++  g_cccr = FDCAN1->CCCR;
++  g_txbrp = FDCAN1->TXBRP;
++  g_tec = (g_ecr & FDCAN_ECR_TEC) >> FDCAN_ECR_TEC_Pos;
++  g_rec = (g_ecr & FDCAN_ECR_REC) >> FDCAN_ECR_REC_Pos;
++  g_lec = (g_psr & FDCAN_PSR_LEC) >> FDCAN_PSR_LEC_Pos;
++  g_dlec = (g_psr & FDCAN_PSR_DLEC) >> FDCAN_PSR_DLEC_Pos;
++  g_ew = ((g_psr & FDCAN_PSR_EW) != 0U);
++  g_ep = ((g_psr & FDCAN_PSR_EP) != 0U);
++  g_bo = ((g_psr & FDCAN_PSR_BO) != 0U);
++}
++
++static void Report(const char *event)
++{
++  Snapshot();
++  PRINTF("[41][" NODE_LABEL "] %s seq=%" PRIu32 " tx=%" PRIu32 " rx=%" PRIu32
++         " TEC=%" PRIu32 " REC=%" PRIu32 " LEC=%" PRIu32 " DLEC=%" PRIu32
++         " EW=%" PRIu32 " EP=%" PRIu32 " BO=%" PRIu32 "\r\n",
++         event, g_seq, g_tx_ok, g_rx_ok, g_tec, g_rec, g_lec, g_dlec, g_ew, g_ep, g_bo);
++}
++
++static app_status_t Fault(uint32_t code, const char *why, hal_status_t status)
++{
++  g_fault = code;
++  Report(why); /* 在Stop前保存故障现场，不再排队重试。 */
++  PRINTF("[41][" NODE_LABEL "] HALT code=%" PRIu32 " hal=0x%08" PRIX32
++         " CCCR=0x%08" PRIX32 " TXBRP=0x%08" PRIX32 " reset_required\r\n",
++         code, (uint32_t)status, g_cccr, g_txbrp);
++  g_abort_status = (uint32_t)HAL_OK;
++  if (g_txbrp != 0U)
++  {
++    g_abort_status = (uint32_t)HAL_FDCAN_ReqAbortOfTxBuffer(pFDCAN, g_txbrp);
++  }
++  g_stop_status = (uint32_t)HAL_FDCAN_Stop(pFDCAN);
++  return EXEC_STATUS_ERROR;
++}
++
++static uint32_t RxLevel(void)
++{
++  uint32_t level = 0U;
++  HAL_FDCAN_GetRxFifoFillLevel(pFDCAN, HAL_FDCAN_RX_FIFO_0, &level);
++  return level;
++}
++
++static hal_status_t Transmit(const uint8_t *data)
++{
++  hal_fdcan_tx_header_t tx = { .d64 = 0U };
++  tx.b.identifier = TX_ID;
++  tx.b.identifier_type = HAL_FDCAN_ID_STANDARD;
++  tx.b.frame_type = HAL_FDCAN_FRAME_DATA;
++  tx.b.error_state_indicator = HAL_FDCAN_ERROR_STATE_IND_ACTIVE;
++  tx.b.data_length = HAL_FDCAN_DATA_LEN_CAN_FDCAN_8_BYTE;
++  tx.b.frame_format = HAL_FDCAN_HEADER_FRAME_FORMAT_FD_CAN;
++  tx.b.bit_rate_switch = HAL_FDCAN_BIT_RATE_SWITCH_ON;
++  tx.b.event_fifo_control = HAL_FDCAN_TX_EVENTS_FIFO_DISCARD;
++  hal_status_t status = HAL_FDCAN_ReqTransmitMsgFromFIFOQ(pFDCAN, &tx, data);
++  if (status != HAL_OK)
++  {
++    return status;
++  }
++  const uint32_t mask = HAL_FDCAN_GetLatestTxFifoQRequestBuffer(pFDCAN);
++  uint32_t start = HAL_GetTick();
++  while ((FDCAN1->TXBRP & mask) != 0U)
++  {
++    if ((uint32_t)(HAL_GetTick() - start) >= TX_TIMEOUT_MS)
++    {
++      return HAL_TIMEOUT;
++    }
++  }
++  /* pending清零也可能是取消，必须核对“实际发送成功”标志。 */
++  if ((FDCAN1->TXBTO & mask) == 0U)
++  {
++    return HAL_ERROR;
++  }
++  g_tx_ok++;
++  return HAL_OK;
++}
++
++static hal_status_t Receive(void)
++{
++  uint32_t start = HAL_GetTick();
++  while (RxLevel() == 0U)
++  {
++    if ((uint32_t)(HAL_GetTick() - start) >= REPLY_TIMEOUT_MS)
++    {
++      return HAL_TIMEOUT;
++    }
++  }
++  hal_fdcan_rx_header_t rx;
++  memset(g_rx, 0, sizeof(g_rx));
++  hal_status_t status = HAL_FDCAN_GetReceivedMessage(pFDCAN, HAL_FDCAN_RX_FIFO_0, &rx, g_rx);
++  if (status != HAL_OK)
++  {
++    return status;
++  }
++  g_last_rx.d64 = rx.d64;
++  if (rx.b.identifier != RX_ID || rx.b.identifier_type != HAL_FDCAN_ID_STANDARD
++      || rx.b.frame_type != HAL_FDCAN_FRAME_DATA
++      || rx.b.data_length != HAL_FDCAN_DATA_LEN_CAN_FDCAN_8_BYTE
++      || rx.b.frame_format != HAL_FDCAN_HEADER_FRAME_FORMAT_FD_CAN
++      || rx.b.bit_rate_switch != HAL_FDCAN_BIT_RATE_SWITCH_ON
++      || rx.b.frame_status != HAL_FDCAN_RX_FRAME_MATCHED || rx.b.filter_index != 0U)
++  {
++    return HAL_ERROR;
++  }
++  g_rx_ok++;
++  return HAL_OK;
++}
++
+ app_status_t app_init(void)
+ {
+-
+-  app_status_t return_status = EXEC_STATUS_ERROR;
+-
+   pFDCAN = mx_example_fdcan_init();
+-
+-  if (pFDCAN != NULL)
+-  {
+-    PRINTF("[INFO] Step 1: Device initialization COMPLETED.\n");
+-    return_status = EXEC_STATUS_INIT_OK;
+-  }
+-
+-  /* Start FDCAN module */
+-  HAL_FDCAN_Start(pFDCAN);
+-
+-  return return_status;
+-} /* end app_init */
+-
++  if (pFDCAN == NULL)
++  {
++    PRINTF("[41][" NODE_LABEL "] INIT_FAIL\r\n");
++    return EXEC_STATUS_ERROR;
++  }
++  HAL_RCC_GPIOE_EnableClock();
++  hal_gpio_config_t gpio = {0};
++  gpio.mode = HAL_GPIO_MODE_OUTPUT;
++  gpio.output_type = HAL_GPIO_OUTPUT_PUSHPULL;
++  gpio.pull = HAL_GPIO_PULL_NO;
++  gpio.speed = HAL_GPIO_SPEED_FREQ_LOW;
++  gpio.init_state = HAL_GPIO_PIN_RESET;
++  if (HAL_GPIO_Init(HAL_GPIOE, HAL_GPIO_PIN_2, &gpio) != HAL_OK)
++  {
++    return EXEC_STATUS_ERROR;
++  }
++  /* 教学上留1ms等待，不将此数写成器件的切换时间规格。 */
++  HAL_Delay(1U);
++  g_pe2 = HAL_GPIO_ReadPin(HAL_GPIOE, HAL_GPIO_PIN_2);
++  hal_fdcan_global_filter_config_t global = {
++    .acceptance_non_matching_std = HAL_FDCAN_NO_MATCH_REJECT,
++    .acceptance_non_matching_ext = HAL_FDCAN_NO_MATCH_REJECT,
++    .acceptance_remote_std = HAL_FDCAN_REMOTE_REJECT,
++    .acceptance_remote_ext = HAL_FDCAN_REMOTE_REJECT,
++  };
++  if (HAL_FDCAN_SetGlobalFilter(pFDCAN, &global) != HAL_OK
++      || HAL_FDCAN_DisableEdgeFiltering(pFDCAN) != HAL_OK
++      || HAL_FDCAN_GetMode(pFDCAN) != HAL_FDCAN_MODE_NORMAL
++      || HAL_FDCAN_GetClockFreq(pFDCAN) != 144000000U)
++  {
++    PRINTF("[41][" NODE_LABEL "] CONFIG_FAIL\r\n");
++    return EXEC_STATUS_ERROR;
++  }
++  g_nbtp = FDCAN1->NBTP;
++  g_dbtp = FDCAN1->DBTP;
++  PRINTF("[41][" NODE_LABEL "] NORMAL 500k/2M TX=%03X RX=%03X PE2=%" PRIu32
++         " NBTP=%08" PRIX32 " DBTP=%08" PRIX32 "\r\n",
++         (unsigned)TX_ID, (unsigned)RX_ID, g_pe2, g_nbtp, g_dbtp);
++  hal_status_t status = HAL_FDCAN_Start(pFDCAN);
++  if (status != HAL_OK)
++  {
++    PRINTF("[41][" NODE_LABEL "] START_FAIL hal=0x%08" PRIX32 "\r\n",(uint32_t)status);
++    return EXEC_STATUS_ERROR;
++  }
++  return EXEC_STATUS_INIT_OK;
++}
+ 
+ app_status_t app_process(void)
+ {
+-  app_status_t return_status = EXEC_STATUS_ERROR;
+-  hal_status_t hal_status;   /* memorizes the HAL status of the FDCAN TX/RX operations */
+-  uint32_t com_attempts = 0U; /* memorizes the number of attempts made to exchange a message between the boards */
+-  uint32_t rx_elements = 0U;  /* memorizes the number of frame in Rx Fifo */
+-  uint32_t fdcan_error_code;   /* memorizes the FDCAN error code limited to the last process */
+-  uint32_t rx_msg_start_tick = 0U; /* memorizes the starting tick to detect reception timeout */
+-
+-  hal_fdcan_rx_header_t rx_element_header;
+-
+-  /* Prepare FDCAN transmit message header */
+-  hal_fdcan_tx_header_t tx_element_header =
+-  {
+-    .b.identifier = FDCAN_CONTROLLER_FRAME_ID,
+-    .b.frame_type = HAL_FDCAN_FRAME_DATA,
+-    .b.identifier_type = HAL_FDCAN_ID_STANDARD,
+-    .b.error_state_indicator = HAL_FDCAN_ERROR_STATE_IND_ACTIVE,
+-    .b.data_length = MSG_DATA_LENGTH,
+-    .b.bit_rate_switch = HAL_FDCAN_BIT_RATE_SWITCH_ON,
+-    /* @user: change to HAL_FDCAN_FRAME_FORMAT_CAN to send in classical CAN format.*/
+-    .b.frame_format = HAL_FDCAN_HEADER_FRAME_FORMAT_FD_CAN,
+-    .b.event_fifo_control = HAL_FDCAN_TX_EVENTS_FIFO_STORE,
+-    .b.message_marker = 52U,
+-  };
+-
+-  UpdateBuffers();
+-
+-  while ((com_attempts < MAX_COM_ATTEMPTS) && (return_status == EXEC_STATUS_ERROR))
+-  {
+-    /* Start a new communication attempt */
+-    com_attempts++;
+-
+-    /** ########## Step 2 ##########
+-      * Transmits in polling mode the buffer pointed by pTxData using FDCAN.
+-      */
+-    hal_status = HAL_FDCAN_ReqTransmitMsgFromFIFOQ(pFDCAN, &tx_element_header, pTxData);
+-    if (hal_status != HAL_OK)
+-    {
+-      /* An error occurs during the FDCAN write transfer. Report it, then restart the communication */
+-      fdcan_error_code = HAL_FDCAN_GetLastErrorCodes(pFDCAN);
+-      return_status  = HandleTransferError(hal_status, fdcan_error_code);
+-      continue;
+-    }
+-
+-    /** ########## Step 3 ##########
+-      * Receives in polling mode a buffer using FDCAN.
+-      */
+-    hal_status = HAL_TIMEOUT;
+-    rx_msg_start_tick = HAL_GetTick();
+-    while (HAL_GetTick() - rx_msg_start_tick < FDCAN_COM_TIMEOUT)
+-    {
+-      HAL_FDCAN_GetRxFifoFillLevel(pFDCAN, HAL_FDCAN_RX_FIFO_0, &rx_elements);
+-      if (rx_elements > 0)
+-      {
+-        hal_status = HAL_FDCAN_GetReceivedMessage(pFDCAN, HAL_FDCAN_RX_FIFO_0, &rx_element_header, RxBuffer);
+-        break;
+-      }
+-    }
+-
+-    if (hal_status != HAL_OK)
+-    {
+-      /* An error occurs during the FDCAN read transfer. Report it, then restart the communication */
+-      fdcan_error_code = HAL_FDCAN_GetLastErrorCodes(pFDCAN);
+-      return_status  = HandleTransferError(hal_status, fdcan_error_code);
+-      continue;
+-    }
+-
+-    /** ########## Step 4 ##########
+-      * Checks the correctness of the received buffer after the data transfer is completed.
+-      */
+-    return_status = HandleTransferCplt(rx_element_header);
+-
+-  } /* end while */
+-
+-  return return_status;
+-} /* end app_process */
+-
+-
+-/** De-initializes the FDCAN instance before leaving the scenario.
+-  * In this example, app_deinit is never called and it is provided as a reference only.
+-  */
++  hal_status_t status;
++#if NODE_CONTROLLER
++  if (g_exchange_ok != 0U)
++  {
++    HAL_Delay(SEND_PAUSE_MS);
++  }
++  g_seq++;
++  for (uint32_t i = 0; i < 4U; i++)
++  {
++    tx_data[i] = (uint8_t)(g_seq >> (8U * i));
++  }
++  tx_data[4] = 0x41U;
++  tx_data[5] = 0xA5U;
++  tx_data[6] = 0x5AU;
++  tx_data[7] = (uint8_t)g_seq ^ 0xA5U;
++  status = Transmit(tx_data);
++  if (status != HAL_OK)
++  {
++    return Fault(10U, "TX_FAIL", status);
++  }
++  PRINTF("[41][A] TX_OK seq=%" PRIu32 " awaiting_echo\r\n",g_seq);
++  status = Receive();
++  if (status != HAL_OK)
++  {
++    return Fault(20U, "RX_FAIL", status);
++  }
++  if (memcmp(tx_data, g_rx, DATA_BYTES) != 0)
++  {
++    return Fault(21U, "DATA_MISMATCH", HAL_ERROR);
++  }
++#else
++  status = Receive();
++  if (status == HAL_TIMEOUT)
++  {
++    g_waits++;
++    PRINTF("[41][B] WAIT count=%" PRIu32 "\r\n",g_waits);
++    return EXEC_STATUS_INIT_OK; /* 等待不等于故障，也不算成功收发。 */
++  }
++  if (status != HAL_OK)
++  {
++    return Fault(30U, "BAD_REQUEST", status);
++  }
++  g_seq = (uint32_t)g_rx[0] | ((uint32_t)g_rx[1] << 8U)
++          | ((uint32_t)g_rx[2] << 16U) | ((uint32_t)g_rx[3] << 24U);
++  memcpy(tx_data, g_rx, DATA_BYTES);
++  status = Transmit(tx_data);
++  if (status != HAL_OK)
++  {
++    return Fault(31U, "ECHO_TX_FAIL", status);
++  }
++#endif
++  g_exchange_ok++;
++  Report("EXCHANGE_OK");
++  return EXEC_STATUS_OK;
++}
++
+ app_status_t app_deinit(void)
+ {
+-  /* Stop FDCAN module */
+-  HAL_FDCAN_Stop(pFDCAN);
+-
++  (void)HAL_FDCAN_Stop(pFDCAN);
+   mx_example_fdcan_deinit();
+-
+   return EXEC_STATUS_OK;
+-} /* end app_deinit */
+-
+-
+-/** brief:  Updates the TX buffer pointer and clears the RX buffer before starting a new transfer.
+-  * param:  none
+-  * retval: none
+-  */
+-static inline void UpdateBuffers(void)
+-{
+-  /* Toggle between BufferA and BufferB to select the message to send */
+-  if (pTxData == BufferA)
+-  {
+-    pTxData = BufferB;
+-  }
+-  else
+-  {
+-    pTxData = BufferA;
+-  }
+-
+-  memset(RxBuffer, 0U, TX_BUFFER_SIZE);
+-} /* end UpdateBuffers */
+-
+-/** brief:  Checks the correctness of the data when the transfer is completed.
+-  * param:  none
+-  * retval: example status
+-  */
+-static app_status_t HandleTransferCplt(hal_fdcan_rx_header_t rx_element_header)
+-{
+-  app_status_t return_status = EXEC_STATUS_ERROR;
+-
+-  if ((rx_element_header.b.identifier == FDCAN_RESPONDER_FRAME_ID)
+-      && (rx_element_header.b.data_length == MSG_DATA_LENGTH)
+-      && (memcmp(pTxData, RxBuffer, TX_BUFFER_SIZE) == 0))
+-  {
+-    PRINTF("[INFO] Controller - Tx/Rx Buffers IDENTICAL. Transfer COMPLETED of %u bytes.\n", TX_BUFFER_SIZE);
+-
+-    return_status = EXEC_STATUS_OK;
+-  }
+-  else
+-  {
+-    PRINTF("[ERROR] Controller - Tx/Rx Buffers DIFFERENT. TRYING AGAIN.\n");
+-  }
+-
+-  return return_status;
+-} /* end HandleTransferCplt */
+-
+-/** brief:  This function is executed in case of a data transfer error.
+-  * param hal_status:  HAL status of the FDCAN TX/RX operations.
+-  * param FDCAN_error_code:  FDCAN Error Code.
+-  * retval: example status
+-  */
+-static app_status_t HandleTransferError(uint32_t hal_status, uint32_t fdcan_error_code)
+-{
+-  PRINTF("[ERROR] Controller - Communication ERROR: hal_status = %" PRIu32 ", \
+-  HAL_FDCAN_GetLastErrorCodes = %" PRIu32 ". TRYING AGAIN.\n", hal_status, fdcan_error_code);
+-
+-  return EXEC_STATUS_ERROR;
+-} /* end HandleTransferError */
++}

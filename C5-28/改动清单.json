@@ -1,0 +1,30 @@
+[
+  {
+    "program": "aes",
+    "official_path": "examples/hal/aes/cipher_gcm/application/example.c",
+    "package_path": "aes/example.c",
+    "diff": "aes/example_c_改动.diff",
+    "sha256": "f45b13e76984f798dfc8306c5b89aad06cd6db0094790ad0898993a2a9629e6e"
+  },
+  {
+    "program": "aes",
+    "official_path": "examples/hal/aes/cipher_gcm/NUCLEO-C542RC/cmake/cmake/flags.cmake",
+    "package_path": "aes/flags.cmake",
+    "diff": "aes/flags_cmake_改动.diff",
+    "sha256": "f0935fe9b611a94f9f24a1613246ec4c3ba0ab67decb526aebf9d61f538e5ae4"
+  },
+  {
+    "program": "hash",
+    "official_path": "examples/hal/hash/integrity_sha/application/example.c",
+    "package_path": "hash/example.c",
+    "diff": "hash/example_c_改动.diff",
+    "sha256": "8602da21c06e7ab511e4ee6e2296af9c81d7ed9c88b22aeb505bb32d3150d5d7"
+  },
+  {
+    "program": "hash",
+    "official_path": "examples/hal/hash/integrity_sha/NUCLEO-C542RC/cmake/cmake/flags.cmake",
+    "package_path": "hash/flags.cmake",
+    "diff": "hash/flags_cmake_改动.diff",
+    "sha256": "f0935fe9b611a94f9f24a1613246ec4c3ba0ab67decb526aebf9d61f538e5ae4"
+  }
+]

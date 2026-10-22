@@ -1,0 +1,186 @@
+--- official/examples/ll/adc/multi_channels_dma/application/stm32c5xx_ll_example.c
++++ c5_33/examples/ll/adc/multi_channels_dma/application/stm32c5xx_ll_example.c
+@@ -20,12 +20,10 @@
+ /* Private typedef -----------------------------------------------------------*/
+ /* Private define ------------------------------------------------------------*/
+ /* MX_ADCx delay between end of calibration and enable operations (unit: CPU clock cycles). */
+-#define ADC_DELAY_CALIB_ENABLE_CPU_CYCLES (LL_ADC_DELAY_CALIB_ENABLE_ADC_CYCLES * 4U)
++#define ADC_DELAY_CALIB_ENABLE_CPU_CYCLES (LL_ADC_DELAY_CALIB_ENABLE_ADC_CYCLES * 8U)
+ #define ADC_ENABLE_TIMEOUT_MS             (2U)        /* MX_ADCx enable time-out value (unit: milli seconds)      */
+ #define ADC_DISABLE_TIMEOUT_MS            (2U)        /* MX_ADCx enable time-out value (unit: milli seconds)      */
+ #define ADC_CALIBRATION_TIMEOUT_MS        (500U)      /* MX_ADCx calibration time-out value (unit: milli seconds) */
+-#define ADC_VREFPLUS_VALUE                (VDD_VALUE) /* Assumption: pin Vref+ connected to Vdd at board level    */
+-#define ADC_BUFFER_SIZE                   (3U)        /* ADC converted data buffer size                           */
+ 
+ /* @user: The maximum data bus width used by DMA in STM32 devices is 64 bits.
+           Therefore, 8-byte alignment is the minimum recommended alignment for DMA buffers across STM32 devices. */
+@@ -34,13 +32,15 @@
+ /* Private macro -------------------------------------------------------------*/
+ /* Private variables ---------------------------------------------------------*/
+ /** Buffer to store converted raw data to be transferred through DMA.
+-  * - Non-cacheable memory for data cache consistency.
+   * - Aligned for DMA constraints.
+-  * - Mandatory with data cache enabled, harmless otherwise: portable across STM32 series.
+   * - Variable for the ADC conversion data (a count on the ADC scale).
+-  */
+-__attribute__((section("non_cacheable_area"), aligned(DMA_ACCESS_ALIGNMENT)))
+-uint16_t ADCRawData[ADC_BUFFER_SIZE];
++  * C5 #33 改写：
++  * - 声明为 volatile：DMA 写、CPU 读，编译器不知道有人在背后改这块内存。
++  * - 去掉官方的 section("non_cacheable_area")：STM32C542RC 没有数据缓存；该段在链接脚本里是孤儿段，
++  *   启动代码既不拷贝也不清零，放进去的缓冲区上电后是随机内容。改放普通 .bss，启动时清零。
++  */
++__attribute__((aligned(DMA_ACCESS_ALIGNMENT)))
++volatile uint16_t ADCRawData[ADC_BUFFER_SIZE];
+ 
+ /* Private functions prototype -----------------------------------------------*/
+ void mx_adcx_irqhandler(void);
+@@ -102,16 +102,17 @@
+   */
+ inline system_status_t ADC_Calibrate(void)
+ {
+-  /* Note: wait_loop_index variable is equal to ADC_DELAY_CALIB_ENABLE_CPU_CYCLES divided by 2 to compensate partially
+-     CPU processing cycles                                                                                            */
+-  uint32_t wait_loop_index = (ADC_DELAY_CALIB_ENABLE_CPU_CYCLES >> 1U);
++  uint32_t wait_start; /* DWT已由app_init启用，避免空循环被Release优化掉。 */
+ #if defined(USE_LL_APP_TIMEOUT) && (USE_LL_APP_TIMEOUT == 1)
+   uint32_t timeout_ms = ADC_DISABLE_TIMEOUT_MS;
+ #endif /* USE_LL_APP_TIMEOUT */
+   system_status_t return_status = SYSTEM_OK;
+ 
+   /* Enable MX_ADCx instance before clearing the MX_ADCx ready flag */
+-  LL_ADC_Disable(MX_ADCx);
++  if (LL_ADC_IsEnabled(MX_ADCx) != 0U)
++  {
++    LL_ADC_Disable(MX_ADCx);
++  }
+   LL_ADC_ClearFlag_ADRDY(MX_ADCx);
+ 
+   /* Wait for MX_ADCx effectively deactivated */
+@@ -133,6 +134,11 @@
+   timeout_ms = ADC_CALIBRATION_TIMEOUT_MS;
+ #endif /* USE_LL_APP_TIMEOUT */
+ 
++  if (return_status != SYSTEM_OK)
++  {
++    return return_status;
++  }
++
+   /* Disable the MX_ADCx deep power down feature (enabled by default after reset state) */
+   LL_ADC_DisableDeepPowerDown(MX_ADCx);
+ 
+@@ -161,12 +167,15 @@
+   }
+ 
+   /* Delay for MX_ADCx stabilization after calibration and before the activation of the MX_ADCx for conversions */
+-  while (wait_loop_index != 0U)
+-  {
+-    wait_loop_index--;
+-  }
+-
+-  ADC_Activate();
++  wait_start = DWT->CYCCNT;
++  while ((DWT->CYCCNT - wait_start) < ADC_DELAY_CALIB_ENABLE_CPU_CYCLES)
++  {
++  }
++
++  if (return_status == SYSTEM_OK)
++  {
++    return_status = ADC_Activate();
++  }
+ 
+   return return_status;
+ }
+@@ -177,6 +186,15 @@
+   */
+ inline void ADC_StartConversion_DMA(void)
+ {
++  uint32_t i;
++
++  /* C5 #33 改写：先把缓冲区填成哨兵，DMA 写过的槽才分得出来；__DMB 保证填完再启动 DMA */
++  for (i = 0U; i < ADC_BUFFER_SIZE; i++)
++  {
++    ADCRawData[i] = ADC_SENTINEL;
++  }
++  __DMB();
++
+   LL_DMA_ConfigAddresses(MX_LPDMAX_CHY_CH,
+                          LL_ADC_DMA_GetRegAddr(MX_ADCx, LL_ADC_DMA_REG_REGULAR_DATA),
+                          (uint32_t)ADCRawData);
+@@ -189,7 +207,7 @@
+ #endif /* USE_LL_APP_ERROR */
+   LL_DMA_EnableChannel(MX_LPDMAX_CHY_CH);
+ 
+-  /* Enable ADC DMA transfer (unlimited for continuous mode) */
++  /* Enable ADC DMA transfer, one-shot (C5 #33): ADC and DMA stop together after the last of ADC_BUFFER_SIZE data */
+   LL_ADC_REG_SetDataTransferMode(MX_ADCx, LL_ADC_REG_DMA_TRANSFER_LIMITED);
+ 
+   /* Enables the MX_ADCx overrun interrupt when USE_LL_APP_ERROR == 1 */
+@@ -198,38 +216,8 @@
+   LL_ADC_EnableIT(MX_ADCx, LL_ADC_IT_OVR);
+ #endif /* USE_LL_APP_ERROR */
+ 
+-  /* Start ADC conversion */
++  /* EXTEN != 0：ADSTART只使能外部触发接收；此刻TIM6仍停着（RM0522 §21.4.19）。 */
+   LL_ADC_REG_StartConversion(MX_ADCx);
+-}
+-
+-
+-/**
+-  *  Get the MX_ADCx GPIO data voltage in mV.
+-  *  uint16_t data voltage value in mV
+-  */
+-inline uint16_t ADC_GetDataGPIOmV(void)
+-{
+-  return (LL_ADC_CALC_DATA_TO_VOLTAGE(ADC_VREFPLUS_VALUE, ADCRawData[0U], LL_ADC_RESOLUTION_12B));
+-}
+-
+-
+-/**
+-  *  Get the MX_ADCx VrefInt data voltage in mV.
+-  *  uint16_t data voltage value in mV
+-  */
+-inline uint16_t ADC_GetDataVrefIntmV(void)
+-{
+-  return (LL_ADC_CALC_DATA_TO_VOLTAGE(ADC_VREFPLUS_VALUE, ADCRawData[1U], LL_ADC_RESOLUTION_12B));
+-}
+-
+-
+-/**
+-  *  Get the MX_ADCx temperature sensor data temperature in DegC.
+-  *  uint16_t data temperature value in DegC
+-  */
+-inline uint16_t ADC_GetDataTemperatureDegC(void)
+-{
+-  return (LL_ADC_CALC_TEMPERATURE(ADC_VREFPLUS_VALUE, ADCRawData[2U], LL_ADC_RESOLUTION_12B));
+ }
+ 
+ 
+@@ -294,19 +282,15 @@
+ 
+ 
+ /**
+-  * Delays execution for an approximate number of microseconds.
+-  * Calculates the wait loop count based on the CMSIS variable "SystemCoreClock".
+-  * The delay is approximate and affected by CPU pipeline, branch prediction, cache, and compiler optimizations.
+-  * For core clock frequencies below 500 kHz, the delay is limited to a few CPU cycles.
+-  *
+-  * warning: This function provides only an approximate delay and must not be used for precise timing.
++  * 使用已启用的DWT等待稳压器启动；本例SystemCoreClock固定144MHz。
++  * 由CPU周期保证最小等待，不使用依赖优化等级的空循环。
+   * param: delay_us Number of microseconds to delay.
+   */
+ static inline void DelayUs(uint32_t delay_us)
+ {
+-  volatile uint32_t wait_loop_index = ((delay_us * (SystemCoreClock >> 19U)) >> 2U);
+-  while (wait_loop_index != 0U)
+-  {
+-    wait_loop_index--;
+-  }
+-}
++  uint32_t start = DWT->CYCCNT;
++  uint32_t cycles = (SystemCoreClock / 1000000U) * delay_us;
++  while ((DWT->CYCCNT - start) < cycles)
++  {
++  }
++}

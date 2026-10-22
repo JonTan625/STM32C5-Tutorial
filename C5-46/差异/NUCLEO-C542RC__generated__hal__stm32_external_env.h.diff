@@ -1,0 +1,21 @@
+--- official/NUCLEO-C542RC/generated/hal/stm32_external_env.h
++++ c5_46/NUCLEO-C542RC/generated/hal/stm32_external_env.h
+@@ -48,6 +48,18 @@
+ #define HSE_STARTUP_TIMEOUT    100UL   /*!< Time out for HSE start up, in ms */
+ #endif /* HSE_STARTUP_TIMEOUT */
+ 
++/**
++  * @brief External Low Speed oscillator (LSE) value.
++  *        This value is used by the UART, RTC HAL module to compute the system frequency
++  */
++#if !defined  (LSE_VALUE)
++#define LSE_VALUE              32768UL   /*!< Value of the External oscillator in Hz*/
++#endif /* LSE_VALUE */
++
++#if !defined  (LSE_STARTUP_TIMEOUT)
++#define LSE_STARTUP_TIMEOUT    5000UL     /*!< Time out for LSE start up, in ms */
++#endif /* LSE_STARTUP_TIMEOUT */
++
+ /* Tip: To avoid modifying this file each time you need to use different HSE,
+    ===  you can define the HSE value in your toolchain compiler preprocessor. */
+ 

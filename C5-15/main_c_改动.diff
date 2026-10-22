@@ -1,0 +1,12 @@
+--- 官方 tim/pwm_output/application/main.c
++++ C5-15 main.c
+@@ -50,7 +50,8 @@
+       */
+     ExecStatus = app_init();
+ 
+-    if (ExecStatus != EXEC_STATUS_ERROR)
++    /* C5-15: run app_process indefinitely (the breathing LED needs a periodic update) */
++    while (ExecStatus != EXEC_STATUS_ERROR)
+     {
+       ExecStatus = app_process();
+     }

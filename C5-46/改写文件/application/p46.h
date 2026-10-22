@@ -1,0 +1,159 @@
+/**
+  ******************************************************************************
+  * file           : p46.h
+  * brief          : C5 #46 项目二：可配置采集报警终端，各模块接口。
+  *                  参数单一来源：#45 项目资料/01_参考方案.json（教学约定，不是芯片保证）。
+  ******************************************************************************
+  */
+#ifndef P46_H
+#define P46_H
+
+#include <stdint.h>
+#include "example.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
+
+/* ---- 参数（#45 01_参考方案.json "parameters"） ---- */
+#define P46_SAMPLE_PERIOD_MS    100U
+#define P46_ADC_TIMEOUT_MS      5U
+#define P46_STALE_MS            300U
+#define P46_TH_LOW_DEFAULT      2800U
+#define P46_TH_HIGH_DEFAULT     3000U
+#define P46_QUALIFY_SAMPLES     3U
+#define P46_LINE_MAX            32U      /* 不含结束符 */
+#define P46_RX_RING             128U     /* 2 的幂 */
+#define P46_TX_RING             512U     /* 2 的幂 */
+#define P46_STATUS_MAX          256U     /* 含 CRLF */
+#define P46_FAULT_BLINK_MS      250U
+#define P46_IWDG_MS             2000U
+#define P46_CFG_PAGE_ADDR       0x0803E000UL
+#define P46_CFG_MAGIC           0xC5450001UL
+#ifndef P46_CFG_SLOTS
+#define P46_CFG_SLOTS           512U     /* 8192 / 16；测试变体用 -DP46_CFG_SLOTS=4 */
+#endif /* P46_CFG_SLOTS */
+
+/* ---- 应用状态（唯一所有者：example.c） ---- */
+typedef enum
+{
+  P46_ST_STOP = 0,
+  P46_ST_RUN,
+  P46_ST_ALARM,
+  P46_ST_FAULT
+} p46_state_t;
+
+/* ---- sampler：ADC1 IN4 单次转换，主循环请求、中断发布 ---- */
+typedef struct
+{
+  uint16_t raw;    /* 12 位码值 */
+  uint32_t tick;   /* 转换完成时的 HAL tick（ms） */
+} p46_sample_t;
+
+int32_t sampler_init(void);                     /* 0 成功 */
+int32_t sampler_request(uint32_t now_ms);       /* 0 已发起；<0 驱动拒绝 */
+uint8_t sampler_take(p46_sample_t *p_out);      /* 1 = 取到一个新样本 */
+uint8_t sampler_pending(uint32_t *p_since_ms);  /* 1 = 有在途请求 */
+uint8_t sampler_take_error(void);               /* 1 = 中断报告过错误（读后清除） */
+void    sampler_stop(void);                     /* 终止在途转换，丢弃迟到结果 */
+#if defined(P46_TEST) && (P46_TEST != 0)
+void    sampler_test_mask_complete(uint8_t on); /* 测试钩子：吞掉完成事件 */
+void    sampler_test_inject_error(void);        /* 测试钩子：下一次请求报错 */
+uint8_t sampler_test_queue(const uint16_t *p_values, uint32_t count); /* 测试钩子：用给定值替代后续样本 */
+#endif /* P46_TEST */
+
+/* ---- terminal：USART2 中断收发 + 环形缓冲，主循环组行 ---- */
+typedef enum
+{
+  P46_LINE_NONE = 0,
+  P46_LINE_READY,      /* 得到一行（已去掉结束符，NUL 结尾） */
+  P46_LINE_TOO_LONG    /* 一行超长，已丢到行尾 */
+} p46_line_t;
+
+typedef struct
+{
+  uint32_t rx_bytes;
+  uint32_t rx_dropped;   /* RX 环满丢掉的字节 */
+  uint32_t rx_errors;    /* FE/NE/ORE */
+  uint32_t tx_dropped;   /* TX 环放不下而整行丢弃的行数 */
+  uint32_t long_lines;
+} p46_term_stats_t;
+
+extern p46_term_stats_t g_term;
+
+int32_t    term_init(void);
+p46_line_t term_poll_line(char *p_line);        /* p_line 至少 P46_LINE_MAX + 1 字节 */
+void       term_write(const char *p_text);      /* 整行放不下就整行丢弃并计数，不截半行 */
+
+/* ---- alarm：连续 3 次资格计数 + 迟滞 ---- */
+typedef struct
+{
+  uint8_t up;    /* 连续 >= high 的样本数 */
+  uint8_t down;  /* 连续 <= low 的样本数 */
+} p46_alarm_t;
+
+void        alarm_reset(p46_alarm_t *p_alarm);
+p46_state_t alarm_step(p46_alarm_t *p_alarm, p46_state_t state, uint16_t raw, uint16_t low, uint16_t high);
+
+/* ---- timekeep：RTC + LSE，备份寄存器记“已校时” ---- */
+typedef struct
+{
+  uint16_t year;   /* 2000～2099 */
+  uint8_t  mon;
+  uint8_t  mday;
+  uint8_t  hour;
+  uint8_t  min;
+  uint8_t  sec;
+} p46_datetime_t;
+
+int32_t time_init(void);                        /* 0 成功；失败时 time_valid() 恒为 0 */
+uint8_t time_valid(void);
+int32_t time_get(p46_datetime_t *p_dt);         /* 0 = 有效时间 */
+uint8_t time_is_legal(const p46_datetime_t *p_dt);
+int32_t time_set(const p46_datetime_t *p_dt);   /* 0 成功 */
+
+/* ---- config：末页追加 16 字节记录，只在 STOP 写 ---- */
+typedef struct
+{
+  uint32_t used;       /* 非空白槽数（含外来/坏记录） */
+  uint32_t valid;      /* 本项目格式且校验通过的记录数 */
+  uint32_t foreign;    /* magic 不是本项目的记录 */
+  uint32_t bad;        /* magic 对但 CRC/范围不对 */
+  uint32_t ecc;        /* 读时触发双 ECC 错误的槽 */
+  uint32_t next_slot;  /* 下一次写入的槽号 */
+  uint32_t last_seq;   /* 最近有效记录序号；无则 0 */
+} p46_cfg_scan_t;
+
+typedef enum
+{
+  P46_SAVE_OK = 0,
+  P46_SAVE_SAME,
+  P46_SAVE_FULL,
+  P46_SAVE_ERR_FLASH,
+  P46_SAVE_ERR_VERIFY
+} p46_save_t;
+
+extern p46_cfg_scan_t g_cfg_scan;
+
+int32_t    cfg_init(uint16_t *p_low, uint16_t *p_high);   /* 1 = 已加载有效记录，0 = 用默认值，<0 = 驱动失败 */
+p46_save_t cfg_save(uint16_t low, uint16_t high);
+uint8_t    cfg_is_saved(uint16_t low, uint16_t high);     /* 1 = 与最近有效记录一致 */
+uint32_t   cfg_crc32_mpeg2(const uint8_t *p_data, uint32_t len);
+
+/* ---- health：复位原因快照 + IWDG，只在主循环推进时喂狗 ---- */
+#define P46_PROGRESS_LOOP   0x1U   /* 主循环走完一轮 */
+#define P46_PROGRESS_TERM   0x2U   /* 终端服务被调用 */
+#define P46_PROGRESS_ALL    (P46_PROGRESS_LOOP | P46_PROGRESS_TERM)
+
+void        health_capture_reset(void);         /* 最先调用：快照 RCC_RSR 再清标志 */
+int32_t     health_start(void);                 /* 0 成功 */
+void        health_progress(uint32_t mask);
+void        health_service(void);
+const char *health_reset_name(void);
+uint32_t    health_reset_flags(void);
+
+#ifdef __cplusplus
+}
+#endif /* __cplusplus */
+
+#endif /* P46_H */

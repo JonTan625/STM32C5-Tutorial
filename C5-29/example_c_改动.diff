@@ -1,0 +1,108 @@
+--- official/middleware/stfcf/cipher_aes_gcm/application/example.c
++++ c5_29/middleware/stfcf/cipher_aes_gcm/application/example.c
+@@ -100,6 +100,26 @@
+ /* Computed data buffer */
+ uint8_t Computed_Ciphertext[sizeof(expectedCipherText) + sizeof(expectedTag)] __attribute__((aligned(4)));
+ uint8_t Computed_Plaintext[sizeof(plainText)] __attribute__((aligned(4)));
++
++/* C5 #29 改写：同一段 PSA 代码，GCM 由谁来算只取决于配置宏。
++ * 默认（官方配置）：MBEDTLS_HAL_GCM_ALT，GCM 交给 AES 硬件；
++ * 以 -DC5_29_SW=ON 构建：c5_29_sw_gcm.h 取消 AES/GCM 的 ALT，改用 Mbed TLS 纯软件实现。
++ * 结果经 USART2 打印（115200 8N1），也留在下面的全局变量里：
++ * 1. 用 DWT 计 psa_aead_encrypt()、psa_aead_decrypt() 各一次的 HCLK 周期；
++ * 2. 把密文第 0 字节最低位翻转后解密，看库是否拒收、是否清掉输出。
++ */
++#if defined(MBEDTLS_HAL_GCM_ALT)
++#define C5_29_IMPL  "HAL (AES hardware)"
++#else
++#define C5_29_IMPL  "Mbed TLS software"
++#endif /* MBEDTLS_HAL_GCM_ALT */
++
++static uint8_t TamperedCiphertextAndTag[sizeof(expectedCiphertextAndTag)] __attribute__((aligned(4)));
++
++uint32_t g_enc_cycles;              /* 一次 psa_aead_encrypt() 的 HCLK 周期 */
++uint32_t g_dec_cycles;              /* 一次 psa_aead_decrypt() 的 HCLK 周期 */
++int32_t g_tamper_status;            /* 篡改后解密的返回值，预期 PSA_ERROR_INVALID_SIGNATURE（-149） */
++uint32_t g_tamper_output_cleared;   /* 篡改后输出缓冲区全为 0 时为 1 */
+ 
+ /* Private functions prototype -----------------------------------------------*/
+ 
+@@ -176,6 +196,12 @@
+   app_status_t return_status = EXEC_STATUS_ERROR;
+   psa_status_t retval;
+   size_t computed_size;
++  uint32_t t0;
++
++  /* DWT 周期计数器（#14） */
++  DCB->DEMCR |= DCB_DEMCR_TRCENA_Msk;
++  DWT->CYCCNT = 0U;
++  DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
+ 
+   /** ########## Step 2.1 ##########
+     * Performs an authenticated encryption of a known plaintext,
+@@ -183,6 +209,7 @@
+     */
+ 
+   /* Compute directly the ciphertext passing all the needed parameters */
++  t0 = DWT->CYCCNT;
+   retval = psa_aead_encrypt(key_handle,                         /* The key id */
+                             PSA_ALG_GCM,                        /* Algorithm type */
+                             IV, sizeof(IV),                     /* Initialization vector */
+@@ -191,6 +218,7 @@
+                             Computed_Ciphertext,                /* Data buffer to receive ciphertext and auth tag */
+                             sizeof(Computed_Ciphertext),        /* Size of buffer to receive ciphertext and tag */
+                             &computed_size);                    /* Size of computed ciphertext */
++  g_enc_cycles = DWT->CYCCNT - t0;
+ 
+   /* Verify API returned value */
+   if (retval != PSA_SUCCESS)
+@@ -223,6 +251,7 @@
+     */
+ 
+   /* Decrypt and verify directly ciphertext and tag passing all the needed parameters */
++  t0 = DWT->CYCCNT;
+   retval = psa_aead_decrypt(key_handle,                          /* The key id */
+                             PSA_ALG_GCM,                         /* Algorithm type */
+                             IV, sizeof(IV),                      /* Initialization vector */
+@@ -232,6 +261,7 @@
+                             Computed_Plaintext,                  /* Data buffer to receive generated plaintext */
+                             sizeof(Computed_Plaintext),          /* Size of data buff to receive generated plaintext */
+                             &computed_size);                     /* Size of computed plaintext */
++  g_dec_cycles = DWT->CYCCNT - t0;
+ 
+   /* Verify API returned value */
+   if (retval != PSA_SUCCESS)
+@@ -252,6 +282,33 @@
+     goto _app_process_exit;
+   }
+   PRINTF("[INFO] Step 2.2: Authenticated decryption with associated data (ADAD) COMPLETED.\n");
++
++  /* 篡改：密文第 0 字节最低位翻转。Tag 由库比较（常数时间），不符时返回错误并清零输出 */
++  (void)memcpy(TamperedCiphertextAndTag, expectedCiphertextAndTag, sizeof(TamperedCiphertextAndTag));
++  TamperedCiphertextAndTag[0] ^= 0x01U;
++  (void)memset(Computed_Plaintext, 0xA5, sizeof(Computed_Plaintext));
++  retval = psa_aead_decrypt(key_handle, PSA_ALG_GCM, IV, sizeof(IV), addData, sizeof(addData),
++                            TamperedCiphertextAndTag, sizeof(TamperedCiphertextAndTag),
++                            Computed_Plaintext, sizeof(Computed_Plaintext), &computed_size);
++  g_tamper_status = (int32_t)retval;
++  g_tamper_output_cleared = 1U;
++  for (uint32_t i = 0U; i < sizeof(Computed_Plaintext); i++)
++  {
++    if (Computed_Plaintext[i] != 0U)
++    {
++      g_tamper_output_cleared = 0U;
++    }
++  }
++
++  PRINTF("[C5#29] GCM impl: %s; encrypt %lu cycles, decrypt %lu cycles\n", C5_29_IMPL,
++         (unsigned long)g_enc_cycles, (unsigned long)g_dec_cycles);
++  PRINTF("[C5#29] tampered: status %ld (%s), output cleared %s\n", (long)g_tamper_status,
++         (retval == PSA_ERROR_INVALID_SIGNATURE) ? "REJECTED" : "NOT REJECTED",
++         (g_tamper_output_cleared != 0U) ? "yes" : "no");
++  if (retval != PSA_ERROR_INVALID_SIGNATURE)
++  {
++    goto _app_process_exit;
++  }
+ 
+   return_status = EXEC_STATUS_OK;
+ 

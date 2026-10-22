@@ -1,0 +1,20 @@
+[
+  {
+    "official_path": "application/example_flash.c",
+    "package_path": "example_flash.c",
+    "diff": "example_flash_c_改动.diff",
+    "sha256": "44f88ea409dbf411179bae8258863c27dcaeb66da20eb9035e4938d0972ea448"
+  },
+  {
+    "official_path": "NUCLEO-C542RC/cmake/cmake/flags.cmake",
+    "package_path": "NUCLEO-C542RC/cmake/cmake/flags.cmake",
+    "diff": "flags_cmake_改动.diff",
+    "sha256": "f0935fe9b611a94f9f24a1613246ec4c3ba0ab67decb526aebf9d61f538e5ae4"
+  },
+  {
+    "official_path": "NUCLEO-C542RC/user_modifiable/Device/STM32C542RCT6/stm32c542xc_flash.ld",
+    "package_path": "NUCLEO-C542RC/user_modifiable/Device/STM32C542RCT6/stm32c542xc_flash.ld",
+    "diff": "stm32c542xc_flash_ld_改动.diff",
+    "sha256": "d02ef8a3fe83242af51f1080621ff49eb5d3e3ab92c60b7b72720a4b58ce763c"
+  }
+]

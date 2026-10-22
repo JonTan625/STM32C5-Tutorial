@@ -1,0 +1,586 @@
+--- official/examples/hal/i3c/private_i2c_dma_controller/application/example.c
++++ c5_39/examples/hal/i3c/private_i2c_dma_controller/application/example.c
+@@ -18,24 +18,24 @@
+ /* Includes ------------------------------------------------------------------*/
+ #include "example.h"
+ #include <string.h> /* importing memcmp and memset functions */
++#include "stm32_utils_i3c.h" /* #39: SDK I3C timing helper, added to files.cmake */
+ 
+ /* Private typedef -----------------------------------------------------------*/
+ /* Private define ------------------------------------------------------------*/
+-/* Define Target Address */
+-#define DEVICE_TARGET_ADDR 0x3FU
+-
+-/* @user: set the maximum number of attempts to complete a data transfer between the two boards */
+-#define MAX_COM_ATTEMPTS 10U
+-
+-/* @user: set the payload size in bytes. The I3C message is a string made of this payload and terminated by '\0'. */
+-#define I3C_PAYLOAD_SIZE 40U
+-/**
+-  * Size of the TX and RX buffers in bytes.
+-  * +1 is used to store the null character as the transmitted I3C message is a null-terminated string.
+-  */
+-#define BUFFER_SIZE (I3C_PAYLOAD_SIZE + 1U)
+-
+-#define DMA_ALIGNMENT 64U /* user define to adjust the data alignment to the DMA IP of the SoC */
++/** #39: the I3C peripheral is the controller of a mixed bus whose only target is a legacy
++  * 24C128/24C256 class I2C EEPROM (16-bit memory address, 64-byte page), the same module as #38.
++  * Unlike the HAL I2C driver, the HAL I3C driver takes the 7-bit address as is.
++  */
++#define EEPROM_ADDR_FIRST      0x50U
++#define EEPROM_ADDR_LAST       0x57U
++#define EEPROM_TEST_ADDRESS    0x0100U   /* page 4, outside the #38 test area */
++#define PAGE_SIZE              64U
++#define I2C_OD_FREQ_HZ         400000U   /* legacy I2C Fm */
++#define I3C_PP_FREQ_HZ         12500000U
++#define I2C_DUTY_PERCENT       30U       /* same as the generated configuration */
++#define TIMEOUT_MS             100U
++#define WRITE_CYCLE_LIMIT_MS   10U
++#define MONITOR_PERIOD_MS      1000U
+ 
+ #define COUNTOF(arr) (sizeof(arr) / sizeof((arr)[0]))
+ 
+@@ -46,116 +46,50 @@
+ /* Context buffer related to Frame context, contain different buffer value for a communication */
+ hal_i3c_transfer_ctx_t ContextBuffers;
+ 
+-volatile uint8_t TransferComplete = 0U; /* Set to 1 if the transfer is correctly completed */
+-volatile uint8_t TransferError = 0U;    /* Set to 1 if a transmission or a reception error is detected */
+-
+-/** BufferA, BufferB: fixed-size buffers to transfer alternately.
+-  * @user: it is possible to modify the messages content and length, update I3C_PAYLOAD_SIZE if necessary.
+-  */
+-const uint8_t BufferA[BUFFER_SIZE] = "I2C Two Boards Communication - Message A";
+-
+-const uint8_t BufferB[BUFFER_SIZE] = "I2C Two Boards Communication - Message B";
+-
+-/** Reception buffer for CPU and DMA.
+-  * - Non-cacheable memory for data cache consistency.
+-  * - Aligned for DMA constraints.
+-  * - Mandatory with data cache enabled, harmless otherwise: portable across STM32 series.
+-  */
+-/* Buffer used for reception */
+-__attribute__((section("non_cacheable_area"), aligned(DMA_ALIGNMENT)))
+-uint8_t RxBuffer[BUFFER_SIZE] = {0U};
+-
+-/* Buffer for transfer context */
+-__attribute__((section("non_cacheable_area"), aligned(DMA_ALIGNMENT)))
+-uint32_t aControlBuffer[20] = {0U};
+-
+-/* Descriptor for private data transmit */
+-hal_i3c_private_desc_t PrivateDescriptor[2] =
+-{
+-  {DEVICE_TARGET_ADDR, BUFFER_SIZE, HAL_I3C_DIRECTION_WRITE},
+-  {DEVICE_TARGET_ADDR, BUFFER_SIZE, HAL_I3C_DIRECTION_READ}
+-};
++/* #39: results kept for the debugger as well as the UART log */
++uint32_t GeneratedTiming[2]  = {0U};   /* TIMINGR0/1 written by the generated code (1 MHz) */
++uint32_t UtilsTiming[2]      = {0U};   /* raw result of STM32_UTILS_I3C_CTRL_ComputeTiming() */
++uint32_t AppliedTiming[2]    = {0U};   /* values read back after HAL_I3C_CTRL_SetConfig() */
++uint8_t  EepromAddr7         = 0U;
++uint32_t WriteCycleMs        = 0U;
++uint32_t MonitorOk           = 0U;
++uint32_t MonitorFail         = 0U;
++uint32_t Reinits             = 0U;
++
++uint8_t  TxBuffer[2U + PAGE_SIZE];     /* 16-bit memory address followed by one page */
++uint8_t  RxBuffer[PAGE_SIZE];
++uint32_t aControlBuffer[4] = {0U};     /* one control word per descriptor (private, no defining byte) */
+ 
+ /* Private functions prototype -----------------------------------------------*/
+-static inline void UpdateBuffers(void);
+-static app_status_t HandleTransferCplt(void);
+-static app_status_t HandleTransferError(uint32_t hal_status, uint32_t i3c_error_code);
+-
+-/* Functions allowing the user to configure dynamically the I3C callbacks instead of weak functions */
+-static void CtrlXferCpltCallback(hal_i3c_handle_t *pI3C);
+-static void TransferErrorCallback(hal_i3c_handle_t *pI3C);
++static hal_status_t I3cStart(void);
++static hal_status_t PrepareTiming(void);
++static void ReportError(const char *what, hal_status_t hal_status);
++static hal_status_t EepromWritePage(uint16_t mem_addr, const uint8_t *p_data);
++static hal_status_t EepromRead(uint16_t mem_addr, uint8_t *p_data, uint32_t size_byte, hal_i3c_transfer_mode_t mode);
++static hal_status_t WaitReady(uint32_t limit_ms, uint32_t *p_elapsed_ms);
+ 
+ /** ########## Step 1 ##########
+-  * The init of the I3C and DMA instances are triggered by the applicative code.
+-  * The user callbacks for I3C master TX/RX transfer completed and transfer error are registered.
++  * The I3C instance is initialized by the generated code (1 MHz legacy I2C timing).
++  * #39: recompute TIMINGR0/1 for 400 kHz with the SDK helper, check the FREE field, apply and read back.
+   */
+ app_status_t app_init(void)
+ {
+   app_status_t return_status = EXEC_STATUS_ERROR;
+-  hal_status_t hal_status; /* Memorizes the HAL status of the I3C TX/RX operations */
+-  uint32_t i3c_error_code; /* Memorizes the I3C error code limited to the last process */
+ 
+   pI3C = mx_example_i3c_init();
+   if (pI3C == NULL)
+   {
+     goto _app_init_exit;
+   }
+-  /* Register the I3C Controller callbacks */
+-  if (HAL_I3C_CTRL_RegisterTransferCpltCallback(pI3C, CtrlXferCpltCallback) != HAL_OK)
++  GeneratedTiming[0] = I3C1->TIMINGR0;
++  GeneratedTiming[1] = I3C1->TIMINGR1;
++  PRINTF("[INFO] Step 1: generated TIMINGR0 = 0x%08" PRIX32 ", TIMINGR1 = 0x%08" PRIX32 " (1 MHz mixed bus)\n",
++         GeneratedTiming[0], GeneratedTiming[1]);
++
++  if (PrepareTiming() != HAL_OK)
+   {
+     goto _app_init_exit;
+   }
+-
+-  if (HAL_I3C_RegisterErrorCallback(pI3C, TransferErrorCallback) != HAL_OK)
+-  {
+-    goto _app_init_exit;
+-  }
+-
+-  hal_status = HAL_I3C_CTRL_ResetTransferCtx(&ContextBuffers);
+-  if (hal_status != HAL_OK)
+-  {
+-    /* An error occurs at the reset a transfer. */
+-    i3c_error_code = HAL_I3C_GetLastErrorCodes(pI3C);
+-    return_status = HandleTransferError(hal_status, i3c_error_code);
+-  }
+-
+-  hal_status = HAL_I3C_CTRL_InitTransferCtxTc(
+-                 &ContextBuffers, aControlBuffer,
+-                 HAL_I3C_GET_CTRL_BUFFER_SIZE_WORD(COUNTOF(PrivateDescriptor), HAL_I2C_PRIVATE_WITHOUT_ARB_STOP));
+-
+-  if (hal_status != HAL_OK)
+-  {
+-    /* An error occurs at the transfer context */
+-    i3c_error_code = HAL_I3C_GetLastErrorCodes(pI3C);
+-    return_status = HandleTransferError(hal_status, i3c_error_code);
+-  }
+-
+-  hal_status = HAL_I3C_CTRL_InitTransferCtxTx(&ContextBuffers, BufferB, BUFFER_SIZE);
+-
+-  if (hal_status != HAL_OK)
+-  {
+-    /* An error occurs at the initialise the transfer context with buffer A */
+-    i3c_error_code = HAL_I3C_GetLastErrorCodes(pI3C);
+-    return_status = HandleTransferError(hal_status, i3c_error_code);
+-  }
+-
+-  hal_status = HAL_I3C_CTRL_InitTransferCtxRx(&ContextBuffers, RxBuffer, BUFFER_SIZE);
+-  if (hal_status != HAL_OK)
+-  {
+-    /* An error occurs at the initialise the transfer context with RxBuffer */
+-    i3c_error_code = HAL_I3C_GetLastErrorCodes(pI3C);
+-    return_status = HandleTransferError(hal_status, i3c_error_code);
+-  }
+-
+-  hal_status = HAL_I3C_CTRL_BuildTransferCtxPrivate(&ContextBuffers, PrivateDescriptor, COUNTOF(PrivateDescriptor),
+-                                                    HAL_I2C_PRIVATE_WITHOUT_ARB_STOP);
+-  if (hal_status != HAL_OK)
+-  {
+-    /* An error occurs at the build a transfer */
+-    i3c_error_code = HAL_I3C_GetLastErrorCodes(pI3C);
+-    return_status = HandleTransferError(hal_status, i3c_error_code);
+-  }
+-
+   PRINTF("[INFO] Step 1: Device initialization COMPLETED.\n");
+   return_status = EXEC_STATUS_INIT_OK;
+ 
+@@ -164,87 +98,124 @@
+ } /* end app_init */
+ 
+ 
++/** First call: steps 2 to 5 (scan, page write, read back, arbitration header test).
++  * Next calls (main.c loops every 10 ms): step 6, read one byte every MONITOR_PERIOD_MS, never write again.
++  */
+ app_status_t app_process(void)
+ {
+-  app_status_t return_status = EXEC_STATUS_ERROR;
+-  hal_status_t hal_status;    /* Memorizes the HAL status of the I3C TX/RX operations */
+-  uint32_t com_attempts = 0U; /* Memorizes the number of attempts made to exchange a message between the boards */
+-  uint32_t i3c_error_code;    /* Memorizes the I3C error code limited to the last process */
+-
+-  UpdateBuffers();
+-
+-  while ((com_attempts < MAX_COM_ATTEMPTS) && (return_status == EXEC_STATUS_ERROR))
+-  {
+-    /* Clear the I3C interrupts flags before starting a new transfer */
+-    TransferComplete = 0U;
+-    TransferError = 0U;
+-
+-    /* Start a new communication attempt */
+-    com_attempts++;
+-
+-    /** ########## Step 2 ##########
+-      * Transmits in DMA mode the buffer A or buffer B, which contains a null-terminated string,
+-      * and receives another null-terminated string buffer, both using I3C in DMA mode.
++  static uint32_t first_done = 0U;
++  static uint32_t last_tick = 0U;
++  hal_status_t hal_status;
++  uint32_t elapsed_ms;
++
++  if (first_done != 0U)
++  {
++    /**
++      * ########## Step 6 (#39) ##########
++      * Monitor: unplug and replug SDA, each failure is reported, the bus is restarted if needed.
+       */
+-    hal_status = HAL_I3C_CTRL_Transfer_DMA(pI3C, &ContextBuffers);
+-
+-    if (hal_status != HAL_OK)
++    if ((HAL_GetTick() - last_tick) >= MONITOR_PERIOD_MS)
+     {
+-      /* The write and read transfer is not correctly completed. Report the error, then restart the communication */
+-      i3c_error_code = HAL_I3C_GetLastErrorCodes(pI3C);
+-      return_status = HandleTransferError(hal_status, i3c_error_code);
+-      continue;
++      last_tick = HAL_GetTick();
++      hal_status = EepromRead(EEPROM_TEST_ADDRESS, RxBuffer, 1U, HAL_I2C_PRIVATE_WITHOUT_ARB_RESTART);
++      if (hal_status == HAL_OK)
++      {
++        MonitorOk++;
++        PRINTF("[INFO] Step 6: OK %02" PRIX8 " (ok %" PRIu32 ", fail %" PRIu32 ", reinit %" PRIu32 ")\n",
++               RxBuffer[0], MonitorOk, MonitorFail, Reinits);
++      }
++      else
++      {
++        MonitorFail++;
++        ReportError("Step 6 read", hal_status);
++        (void)I3cStart();
++      }
+     }
+-
+-    /** ########## Step 3 ##########
+-      * Waits for one of these I3C interrupts: write transfer complete or transfer error.
+-      */
+-    while ((TransferComplete == 0) && (TransferError == 0))
++    return EXEC_STATUS_OK;
++  }
++  first_done = 1U;
++  last_tick = HAL_GetTick();
++
++  /**
++    * ########## Step 2 (#39) ##########
++    * Look for the EEPROM: address-only legacy I2C messages, retried by the HAL until ACK or timeout.
++    */
++  for (uint32_t addr7 = EEPROM_ADDR_FIRST; addr7 <= EEPROM_ADDR_LAST; addr7++)
++  {
++    if (HAL_I3C_CTRL_PoolForDeviceI2cReady(pI3C, (uint8_t)addr7, 2U) == HAL_OK)
+     {
+-      /** Put the CPU in Wait For Interrupt state. An I3C interrupt or a SystTick interrupt can wake up the CPU.
+-        * @user: This process is used to illustrate the interest of the DMA. It can be replaced by your own code.
+-        */
+-      __WFI();
++      EepromAddr7 = (uint8_t)addr7;
++      break;
+     }
+-
+-    if (TransferError == 1)
+-    {
+-      /* The write and read transfer is not correctly completed. Report the error, then restart the communication */
+-      i3c_error_code = HAL_I3C_GetLastErrorCodes(pI3C);
+-      return_status = HandleTransferError(hal_status, i3c_error_code);
+-      continue;
+-    }
+-
+-    /** ########## Step 4 ##########
+-      * Checks the correctness of the received buffer after the data transfer is completed.
+-      */
+-    return_status = HandleTransferCplt();
+-
+-  } /* end while */
+-
+-  return return_status;
++  }
++  if (EepromAddr7 == 0U)
++  {
++    PRINTF("[ERROR] Step 2: no ACK in 0x50..0x57. Check VCC, GND, SDA, SCL, A0..A2.\n");
++    return EXEC_STATUS_ERROR;
++  }
++  PRINTF("[INFO] Step 2: EEPROM at 7-bit 0x%02" PRIX32 " (HAL I3C takes it unshifted).\n", (uint32_t)EepromAddr7);
++
++  /**
++    * ########## Step 3 (#39) ##########
++    * One legacy I2C write message: 2 address bytes + 64 data bytes, then ACK polling with an upper bound.
++    */
++  for (uint32_t i = 0U; i < PAGE_SIZE; i++)
++  {
++    TxBuffer[2U + i] = (uint8_t)(0x80U + i);
++  }
++  hal_status = EepromWritePage(EEPROM_TEST_ADDRESS, &TxBuffer[2U]);
++  if (hal_status != HAL_OK)
++  {
++    ReportError("Step 3 write", hal_status);
++    return EXEC_STATUS_ERROR;
++  }
++  if (WaitReady(WRITE_CYCLE_LIMIT_MS, &elapsed_ms) != HAL_OK)
++  {
++    PRINTF("[ERROR] Step 3: no ACK %" PRIu32 " ms after the page write.\n", elapsed_ms);
++    return EXEC_STATUS_ERROR;
++  }
++  WriteCycleMs = elapsed_ms;
++  PRINTF("[INFO] Step 3: page written at 0x%04" PRIX32 ", write cycle %" PRIu32 " ms (1 ms tick).\n",
++         (uint32_t)EEPROM_TEST_ADDRESS, WriteCycleMs);
++
++  /**
++    * ########## Step 4 (#39) ##########
++    * Two messages in one frame: write the 2 address bytes, repeated start, read 64 bytes.
++    */
++  memset(RxBuffer, 0, sizeof(RxBuffer));
++  hal_status = EepromRead(EEPROM_TEST_ADDRESS, RxBuffer, PAGE_SIZE, HAL_I2C_PRIVATE_WITHOUT_ARB_RESTART);
++  if (hal_status != HAL_OK)
++  {
++    ReportError("Step 4 read", hal_status);
++    return EXEC_STATUS_ERROR;
++  }
++  if (memcmp(&TxBuffer[2U], RxBuffer, PAGE_SIZE) != 0)
++  {
++    PRINTF("[ERROR] Step 4: Data MISMATCH between written and read buffers.\n");
++    return EXEC_STATUS_ERROR;
++  }
++  PRINTF("[INFO] Step 4: %" PRIu32 " bytes read back, IDENTICAL.\n", (uint32_t)PAGE_SIZE);
++
++  /**
++    * ########## Step 5 (#39) ##########
++    * Same read with the arbitrable header 0x7E enabled. No I3C target acknowledges 0x7E on this bus,
++    * RM0522 Table 434 lists that case as CE2. Expected: error, then the bus is restarted.
++    */
++  hal_status = EepromRead(EEPROM_TEST_ADDRESS, RxBuffer, 1U, HAL_I2C_PRIVATE_WITH_ARB_RESTART);
++  if (hal_status == HAL_OK)
++  {
++    PRINTF("[INFO] Step 5: read WITH 0x7E header succeeded (not the expected CE2).\n");
++  }
++  else
++  {
++    ReportError("Step 5 read with 0x7E header", hal_status);
++    (void)I3cStart();
++  }
++  PRINTF("[INFO] Step 6: monitoring every %" PRIu32 " ms, unplug and replug SDA now.\n", (uint32_t)MONITOR_PERIOD_MS);
++
++  return EXEC_STATUS_OK;
+ } /* end app_process */
+ 
+-
+-/** Master transmission end of transfer callback
+-  * @user This implementation of the I3C master transfer complete callback can be customized.
+-  * This function is executed if the master transfer complete interrupt is generated.
+-  */
+-static void CtrlXferCpltCallback(hal_i3c_handle_t *hi3c)
+-{
+-  /* Asynchronous processing related to step 3 */
+-  TransferComplete = 1U;
+-}
+-
+-/** I3C transfer error callback
+-  * @user This implementation of the I3C master transfer error callback can be customized.
+-  * This function is executed if the master transfer error interrupt is generated.
+-  */
+-static void TransferErrorCallback(hal_i3c_handle_t *hi3c)
+-{
+-  /* Asynchronous processing related to step 3 and 5 */
+-  TransferError = 1U;
+-}
+ 
+ /** De-initializes the I3C and DMA instances before leaving the scenario.
+   * In this example, app_deinit is never called and it is provided as a reference only.
+@@ -257,60 +228,145 @@
+ } /* end app_deinit */
+ 
+ 
+-/** brief:  Updates the TX buffer pointer and clears the RX buffer before starting a new transfer.
+-  * param:  none
+-  * retval: none
+-  */
+-static inline void UpdateBuffers(void)
+-{
+-  /* Update the context to toggle the message being sent between BufferA and BufferB */
+-  if (ContextBuffers.p_tx_data == BufferA)
+-  {
+-    HAL_I3C_CTRL_InitTransferCtxTx(&ContextBuffers, BufferB, BUFFER_SIZE);
+-  }
+-  else
+-  {
+-    HAL_I3C_CTRL_InitTransferCtxTx(&ContextBuffers, BufferA, BUFFER_SIZE);
+-  }
+-
+-  memset(RxBuffer, 0U, BUFFER_SIZE);
+-} /* end UpdateBuffers */
+-
+-/** brief:  Checks the correctness of the data when the transfer is completed.
+-  * param:  none
+-  * retval: example status
+-  */
+-static app_status_t HandleTransferCplt(void)
+-{
+-  app_status_t return_status = EXEC_STATUS_ERROR;
+-
+-  if (memcmp(ContextBuffers.p_tx_data, RxBuffer, BUFFER_SIZE) == 0)
+-  {
+-    PRINTF("[INFO] Controller - Tx/Rx Buffers IDENTICAL. Transfer COMPLETED of %s \n", RxBuffer);
+-    return_status = EXEC_STATUS_OK;
+-  }
+-  else
+-  {
+-    PRINTF("[ERROR] Controller - Tx/Rx Buffers DIFFERENT. TRYING AGAIN.\n");
+-  }
+-
+-  return_status = EXEC_STATUS_OK;
+-  return return_status;
+-} /* end HandleTransferCplt */
+-
+-/** brief:  This function is executed in case of a data transfer error.
+-  * param hal_status:  HAL status of the I2C TX/RX operations.
+-  * param i3c_error_code:  I3C Error Code.
+-  * retval: example status
+-  */
+-static app_status_t HandleTransferError(uint32_t hal_status, uint32_t i3c_error_code)
+-{
+-  PRINTF("[ERROR] Controller - Communication ERROR: hal_status = %" PRIu32 ", \
+-  HAL_I3C_GetLastErrorCodes = %" PRIu32 ". TRYING AGAIN.\n",
+-         hal_status, i3c_error_code);
+-
+-  /* Take the time to check the setup before restarting the communication */
+-  HAL_Delay(1000U);
+-
+-  return EXEC_STATUS_ERROR;
+-} /* end HandleTransferError */
++/** brief:  computes the 400 kHz mixed-bus timing with the SDK helper and applies it.
++  *         RM0522 I3C_TIMINGR1: FREE is 7 bits [22:16], bits 27:23 are reserved. The helper only checks
++  *         its results against 8 bits, so a FREE value above 0x7F is clamped here and reported.
++  * retval: HAL_OK or HAL_ERROR
++  */
++static hal_status_t PrepareTiming(void)
++{
++  stm32_utils_i3c_ctrl_timing_config_t timing_cfg;
++  hal_i3c_ctrl_config_t ctrl_cfg;
++  uint32_t free_cycles;
++
++  timing_cfg.clock_src_freq_hz  = HAL_RCC_I3C1_GetKernelClkFreq();
++  timing_cfg.i3c_pp_freq_hz     = I3C_PP_FREQ_HZ;
++  timing_cfg.i2c_od_freq_hz     = I2C_OD_FREQ_HZ;
++  timing_cfg.duty_cycle_purcent = I2C_DUTY_PERCENT;
++  timing_cfg.wait_time          = STM32_UTILS_I3C_ACTIVITY_STATE_0;
++  timing_cfg.bus_type           = STM32_UTILS_I3C_I2C_MIXED_BUS;
++  if (STM32_UTILS_I3C_CTRL_ComputeTiming(&timing_cfg, &UtilsTiming[0], &UtilsTiming[1]) != STM32_UTILS_I3C_OK)
++  {
++    PRINTF("[ERROR] Step 1: timing helper failed for %" PRIu32 " Hz at %" PRIu32 " Hz kernel clock.\n",
++           (uint32_t)I2C_OD_FREQ_HZ, timing_cfg.clock_src_freq_hz);
++    return HAL_ERROR;
++  }
++  free_cycles = UtilsTiming[1] >> I3C_TIMINGR1_FREE_Pos;   /* helper result, may be wider than 7 bits */
++  free_cycles &= 0xFFU;
++  PRINTF("[INFO] Step 1: helper %" PRIu32 " Hz: TIMINGR0 = 0x%08" PRIX32 ", TIMINGR1 = 0x%08" PRIX32
++         " (FREE = %" PRIu32 ")\n", (uint32_t)I2C_OD_FREQ_HZ, UtilsTiming[0], UtilsTiming[1], free_cycles);
++
++  ctrl_cfg.timing_reg0 = UtilsTiming[0];
++  ctrl_cfg.timing_reg1 = UtilsTiming[1];
++  if (free_cycles > (I3C_TIMINGR1_FREE_Msk >> I3C_TIMINGR1_FREE_Pos))
++  {
++    /* Clamp: tBUF = [(FREE + 1) x 2 - (0.5 + SDA_HD)] x tI3CCLK, 127 still gives > 1.3 us at 144 MHz */
++    ctrl_cfg.timing_reg1 = (UtilsTiming[1] & ~(0xFFUL << I3C_TIMINGR1_FREE_Pos)) | I3C_TIMINGR1_FREE_Msk;
++    PRINTF("[WARN] Step 1: FREE %" PRIu32 " does not fit FREE[6:0], clamped to 127.\n", free_cycles);
++  }
++  if (HAL_I3C_CTRL_SetConfig(pI3C, &ctrl_cfg) != HAL_OK)
++  {
++    return HAL_ERROR;
++  }
++  AppliedTiming[0] = I3C1->TIMINGR0;
++  AppliedTiming[1] = I3C1->TIMINGR1;
++  PRINTF("[INFO] Step 1: applied TIMINGR0 = 0x%08" PRIX32 ", TIMINGR1 = 0x%08" PRIX32 "\n",
++         AppliedTiming[0], AppliedTiming[1]);
++  return HAL_OK;
++}
++
++
++/** brief:  (re)initializes I3C1 and applies the 400 kHz timing; used after a failed transfer
++  */
++static hal_status_t I3cStart(void)
++{
++  Reinits++;
++  mx_example_i3c_deinit();
++  pI3C = mx_example_i3c_init();
++  if (pI3C == NULL)
++  {
++    return HAL_ERROR;
++  }
++  return PrepareTiming();
++}
++
++
++/** brief:  prints a failure with the I3C error codes decoded (RM0522 Table 434, I3C_SER)
++  */
++static void ReportError(const char *what, hal_status_t hal_status)
++{
++  uint32_t err = HAL_I3C_GetLastErrorCodes(pI3C);
++
++  PRINTF("[ERROR] %s: hal_status = 0x%08" PRIX32 ", errors = 0x%08" PRIX32 "%s%s", what, (uint32_t)hal_status, err,
++         ((err & HAL_I3C_ERROR_ADDRESS_NACK) != 0U) ? " ANACK" : "",
++         ((err & HAL_I3C_ERROR_DATA_NACK) != 0U) ? " DNACK" : "");
++  if ((err & I3C_SER_PERR) != 0U)
++  {
++    PRINTF(" CE%" PRIu32, err & I3C_SER_CODERR_Msk);
++  }
++  PRINTF("%s\n", (hal_status == HAL_TIMEOUT) ? " TIMEOUT" : "");
++}
++
++
++/** brief:  builds a transfer context made of the given descriptors and runs it in blocking mode
++  */
++static hal_status_t RunFrame(const hal_i3c_private_desc_t *p_desc, uint32_t nb_desc, hal_i3c_transfer_mode_t mode,
++                             const uint8_t *p_tx, uint32_t tx_size, uint8_t *p_rx, uint32_t rx_size)
++{
++  if ((HAL_I3C_CTRL_ResetTransferCtx(&ContextBuffers) != HAL_OK)
++      || (HAL_I3C_CTRL_InitTransferCtxTc(&ContextBuffers, aControlBuffer,
++                                         HAL_I3C_GET_CTRL_BUFFER_SIZE_WORD(nb_desc, mode)) != HAL_OK)
++      || ((tx_size != 0U) && (HAL_I3C_CTRL_InitTransferCtxTx(&ContextBuffers, p_tx, tx_size) != HAL_OK))
++      || ((rx_size != 0U) && (HAL_I3C_CTRL_InitTransferCtxRx(&ContextBuffers, p_rx, rx_size) != HAL_OK))
++      || (HAL_I3C_CTRL_BuildTransferCtxPrivate(&ContextBuffers, p_desc, nb_desc, mode) != HAL_OK))
++  {
++    return HAL_ERROR;
++  }
++  return HAL_I3C_CTRL_Transfer(pI3C, &ContextBuffers, TIMEOUT_MS);
++}
++
++
++/** brief:  one legacy I2C write message: address high, address low, 64 data bytes, stop
++  */
++static hal_status_t EepromWritePage(uint16_t mem_addr, const uint8_t *p_data)
++{
++  hal_i3c_private_desc_t desc[1] = {{EepromAddr7, 2U + PAGE_SIZE, HAL_I3C_DIRECTION_WRITE}};
++
++  TxBuffer[0] = (uint8_t)(mem_addr >> 8);
++  TxBuffer[1] = (uint8_t)(mem_addr & 0xFFU);
++  if (p_data != &TxBuffer[2U])
++  {
++    memcpy(&TxBuffer[2U], p_data, PAGE_SIZE);
++  }
++  return RunFrame(desc, COUNTOF(desc), HAL_I2C_PRIVATE_WITHOUT_ARB_STOP, TxBuffer, 2U + PAGE_SIZE, NULL, 0U);
++}
++
++
++/** brief:  random read: write the 2 address bytes, repeated start, read size_byte bytes, stop
++  */
++static hal_status_t EepromRead(uint16_t mem_addr, uint8_t *p_data, uint32_t size_byte, hal_i3c_transfer_mode_t mode)
++{
++  static uint8_t addr_bytes[2];
++  hal_i3c_private_desc_t desc[2] =
++  {
++    {EepromAddr7, 2U, HAL_I3C_DIRECTION_WRITE},
++    {EepromAddr7, size_byte, HAL_I3C_DIRECTION_READ}
++  };
++
++  addr_bytes[0] = (uint8_t)(mem_addr >> 8);
++  addr_bytes[1] = (uint8_t)(mem_addr & 0xFFU);
++  return RunFrame(desc, COUNTOF(desc), mode, addr_bytes, 2U, p_data, size_byte);
++}
++
++
++/** brief:  ACK polling bounded by limit_ms. HAL_I3C_CTRL_PoolForDeviceI2cReady() retries by itself
++  *         until its timeout, unlike HAL_I2C_MASTER_PollForSlaveReady() (single trial, #38).
++  */
++static hal_status_t WaitReady(uint32_t limit_ms, uint32_t *p_elapsed_ms)
++{
++  uint32_t tstart = HAL_GetTick();
++  hal_status_t hal_status = HAL_I3C_CTRL_PoolForDeviceI2cReady(pI3C, EepromAddr7, limit_ms);
++
++  *p_elapsed_ms = HAL_GetTick() - tstart;
++  return hal_status;
++}

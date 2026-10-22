@@ -1,0 +1,20 @@
+[
+  {
+    "official_path": "application/example.c",
+    "package_path": "example.c",
+    "diff": "example_c_改动.diff",
+    "sha256": "b5578ba402f2b1f516729e9494f28b93f7035fe814ee02ec31cce15d9709fd29"
+  },
+  {
+    "official_path": "application/main.c",
+    "package_path": "main.c",
+    "diff": "main_c_改动.diff",
+    "sha256": "b072e0e65efa1ef349ddf54c92c74d81159e8184e2b5e648b97882fc4c637338"
+  },
+  {
+    "official_path": "NUCLEO-C542RC/cmake/cmake/flags.cmake",
+    "package_path": "NUCLEO-C542RC/cmake/cmake/flags.cmake",
+    "diff": "flags_cmake_改动.diff",
+    "sha256": "770a61eff5d7b97c081e41205235c689d245e0ea742da551affd3c744d958acd"
+  }
+]

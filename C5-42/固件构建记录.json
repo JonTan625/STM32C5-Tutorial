@@ -1,0 +1,60 @@
+{
+  "date": "2026-10-20",
+  "sdk_version": "STM32C5 MCU HAL2.1.0 / example 2.0.3",
+  "compiler": "GCC14.3.1+st.2",
+  "tool_versions": "cmake version 4.4.0\n\nCMake suite maintained and supported by Kitware (kitware.com/cmake).\narm-none-eabi-gcc.exe (GNU Tools for STM32 14.3.rel1.20251027-0700) 14.3.1 20250623\nCopyright (C) 2024 Free Software Foundation, Inc.\nThis is free software; see the source for copying conditions.  There is NO\nwarranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n",
+  "builds": [
+    {
+      "tree": "sdk_ref",
+      "configuration": "debug",
+      "text": 38176,
+      "data": 248,
+      "bss": 14088,
+      "elf": "tmp/c5_42_20261020/sdk_ref/examples/middleware/usbx/device_hid_mouse_no_os/NUCLEO-C542RC/cmake/build/debug_GCC_NUCLEO-C542RC/usbx_device_hid_mouse_no_os.elf",
+      "elf_sha256": "35f5a621d522151d0636017ded5202fc97e1a87718e06d943e3a34939fa3cb8c",
+      "compiler_warnings": 0,
+      "hardware_tested": false,
+      "build_log": "tmp/c5_42_20261020/logs/sdk_ref_debug_build.log"
+    },
+    {
+      "tree": "sdk_ref",
+      "configuration": "release",
+      "text": 18632,
+      "data": 240,
+      "bss": 14056,
+      "elf": "tmp/c5_42_20261020/sdk_ref/examples/middleware/usbx/device_hid_mouse_no_os/NUCLEO-C542RC/cmake/build/release_GCC_NUCLEO-C542RC/usbx_device_hid_mouse_no_os.elf",
+      "elf_sha256": "4fae815147b609d6be27ec9eaf80dd3d0cc6bd7fd798b8e7aabdd97b53530d87",
+      "compiler_warnings": 0,
+      "hardware_tested": false,
+      "build_log": "tmp/c5_42_20261020/logs/sdk_ref_release_build.log"
+    },
+    {
+      "tree": "sdk_mod",
+      "configuration": "debug",
+      "text": 38512,
+      "data": 248,
+      "bss": 14176,
+      "elf": "tmp/c5_42_20261020/sdk_mod/examples/middleware/usbx/device_hid_mouse_no_os/NUCLEO-C542RC/cmake/build/debug_GCC_NUCLEO-C542RC/usbx_device_hid_mouse_no_os.elf",
+      "elf_sha256": "1330c566a680a1efccbf758cf3143b14ee0f474371ea955f4328a6c3ea5489f2",
+      "compiler_warnings": 0,
+      "hardware_tested": false,
+      "build_log": "tmp/c5_42_20261020/logs/sdk_mod_debug_build.log"
+    },
+    {
+      "tree": "sdk_mod",
+      "configuration": "release",
+      "text": 18808,
+      "data": 240,
+      "bss": 14152,
+      "elf": "tmp/c5_42_20261020/sdk_mod/examples/middleware/usbx/device_hid_mouse_no_os/NUCLEO-C542RC/cmake/build/release_GCC_NUCLEO-C542RC/usbx_device_hid_mouse_no_os.elf",
+      "elf_sha256": "77a78bb9fe48aacf83aab59429e8b093bbe67158a1ac227823c53bc71f1f4d8e",
+      "compiler_warnings": 0,
+      "hardware_tested": false,
+      "build_log": "tmp/c5_42_20261020/logs/sdk_mod_release_build.log"
+    }
+  ],
+  "compiled_c_units": 123,
+  "hardware_probe": "      -------------------------------------------------------------------\n                       STM32CubeProgrammer v2.23.0                  \n      -------------------------------------------------------------------\n\n===== STLink Interface =====\nNo ST-Link detected!\n\n",
+  "hardware_tested_this_turn": false,
+  "wechat_published_this_turn": false
+}

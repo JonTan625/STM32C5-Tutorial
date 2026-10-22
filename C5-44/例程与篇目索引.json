@@ -1,0 +1,2806 @@
+{
+  "date": "2026-10-21",
+  "scope": "STM32C542RC / NUCLEO-C542RC / SDK2.1.0，按外设功能分类，不是全实例实测清单",
+  "rows": [
+    {
+      "group": "系统",
+      "resource": "GPIO / EXTI",
+      "purpose": "输出电平、接收边沿事件",
+      "examples": [
+        "hal/gpio/toggle",
+        "hal/gpio/exti"
+      ],
+      "article": "#03～#04",
+      "pitfall": "引脚模式、上下拉与中断入口一起核对",
+      "source": [
+        {
+          "path": "examples/hal/gpio/toggle",
+          "c542_cmake": "examples/hal/gpio/toggle/NUCLEO-C542RC/cmake/CMakeLists.txt",
+          "readme": "examples/hal/gpio/toggle/README.md",
+          "readme_sha256": "c4f52b12ca2c78a73aeb7369bec7b1c1f06963c7705098f13e31b08d68d23af1",
+          "headings_and_board_lines": [
+            {
+              "line": 3,
+              "text": "# __Example: *hal_gpio_toggle*__"
+            },
+            {
+              "line": 13,
+              "text": "## __1. Detailed scenario__"
+            },
+            {
+              "line": 26,
+              "text": "## __2. Example configuration__"
+            },
+            {
+              "line": 46,
+              "text": "## __3. Hardware environment and setup__"
+            },
+            {
+              "line": 48,
+              "text": "### __3.1. Generic Setup__"
+            },
+            {
+              "line": 75,
+              "text": "### __3.2. Specific board setups__"
+            },
+            {
+              "line": 83,
+              "text": "    <summary>On board NUCLEO-C542RC.</summary>"
+            },
+            {
+              "line": 124,
+              "text": "## __4. Troubleshooting__"
+            },
+            {
+              "line": 135,
+              "text": "## __5. See Also__"
+            },
+            {
+              "line": 160,
+              "text": "## __6. License__"
+            }
+          ]
+        },
+        {
+          "path": "examples/hal/gpio/exti",
+          "c542_cmake": "examples/hal/gpio/exti/NUCLEO-C542RC/cmake/CMakeLists.txt",
+          "readme": "examples/hal/gpio/exti/README.md",
+          "readme_sha256": "31b98d36ca34b7d4044c0d3da67e97ccbde98ab559b308effe617a8a9eec273a",
+          "headings_and_board_lines": [
+            {
+              "line": 3,
+              "text": "# __Example: *hal_gpio_exti*__"
+            },
+            {
+              "line": 12,
+              "text": "## __1. Detailed scenario__"
+            },
+            {
+              "line": 46,
+              "text": "## __2. Example configuration__"
+            },
+            {
+              "line": 73,
+              "text": "## __3. Hardware environment and setup__"
+            },
+            {
+              "line": 75,
+              "text": "### __3.1. Generic Setup__"
+            },
+            {
+              "line": 109,
+              "text": " ### __3.2. Specific board setups__"
+            },
+            {
+              "line": 116,
+              "text": "    <summary>On board NUCLEO-C542RC.</summary>"
+            },
+            {
+              "line": 165,
+              "text": "## __4. Troubleshooting__"
+            },
+            {
+              "line": 179,
+              "text": "## __5. See Also__"
+            },
+            {
+              "line": 194,
+              "text": "## __6. License__"
+            }
+          ]
+        }
+      ],
+      "validation": "目录/README核对；本篇未编译或上板"
+    },
+    {
+      "group": "系统",
+      "resource": "RCC / CRS",
+      "purpose": "分配时钟、校准同步",
+      "examples": [
+        "hal/rcc/clock_switch_max_default",
+        "hal/crs/sync_it"
+      ],
+      "article": "#05、#42",
+      "pitfall": "CPU频率不代表所有外设内核频率",
+      "source": [
+        {
+          "path": "examples/hal/rcc/clock_switch_max_default",
+          "c542_cmake": "examples/hal/rcc/clock_switch_max_default/NUCLEO-C542RC/cmake/CMakeLists.txt",
+          "readme": "examples/hal/rcc/clock_switch_max_default/README.md",
+          "readme_sha256": "e15742d14f6b2f45f07587bfab6bd9dbe3bb5c86951f7665d332f9a498696a0c",
+          "headings_and_board_lines": [
+            {
+              "line": 3,
+              "text": "# __Example: *hal_rcc_clock_switch_max_default*__"
+            },
+            {
+              "line": 12,
+              "text": "## __1. Detailed scenario__"
+            },
+            {
+              "line": 38,
+              "text": "## __2. Example configuration__"
+            },
+            {
+              "line": 51,
+              "text": "## __3. Hardware environment and setup__"
+            },
+            {
+              "line": 53,
+              "text": "### __3.1. Generic Setup__"
+            },
+            {
+              "line": 81,
+              "text": "### __3.2. Specific board setups__"
+            },
+            {
+              "line": 88,
+              "text": "    <summary>On board NUCLEO-C542RC.</summary>"
+            },
+            {
+              "line": 128,
+              "text": "## __4. Troubleshooting__"
+            },
+            {
+              "line": 135,
+              "text": "## __5. See Also__"
+            },
+            {
+              "line": 147,
+              "text": "## __6. License__"
+            }
+          ]
+        },
+        {
+          "path": "examples/hal/crs/sync_it",
+          "c542_cmake": "examples/hal/crs/sync_it/NUCLEO-C542RC/cmake/CMakeLists.txt",
+          "readme": "examples/hal/crs/sync_it/README.md",
+          "readme_sha256": "f2615a0a5b5997355f56e1107b35251cb22cbd01d819751514d0d2f62d6bac50",
+          "headings_and_board_lines": [
+            {
+              "line": 3,
+              "text": "# __Example: *hal_crs_sync_it*__"
+            },
+            {
+              "line": 12,
+              "text": "## __1. Detailed scenario__"
+            },
+            {
+              "line": 39,
+              "text": "## __2. Example configuration__"
+            },
+            {
+              "line": 60,
+              "text": "## __3. Hardware environment and setup__"
+            },
+            {
+              "line": 62,
+              "text": "### __3.1. Generic Setup__"
+            },
+            {
+              "line": 66,
+              "text": "### __3.2. Specific board setups__"
+            },
+            {
+              "line": 77,
+              "text": "    <summary>On board NUCLEO-C542RC.</summary>"
+            },
+            {
+              "line": 120,
+              "text": "## __4. Troubleshooting__"
+            },
+            {
+              "line": 125,
+              "text": "## __5. See Also__"
+            },
+            {
+              "line": 142,
+              "text": "## __6. License__"
+            }
+          ]
+        }
+      ],
+      "validation": "目录/README核对；本篇未编译或上板"
+    },
+    {
+      "group": "系统",
+      "resource": "SysTick / NVIC / 内核",
+      "purpose": "系统节拍、中断与执行环境",
+      "examples": [
+        "hal/cortex/get_systick"
+      ],
+      "article": "#07、#11、#24",
+      "pitfall": "MPU、ICACHE配置仍需单独查手册",
+      "source": [
+        {
+          "path": "examples/hal/cortex/get_systick",
+          "c542_cmake": "examples/hal/cortex/get_systick/NUCLEO-C542RC/cmake/CMakeLists.txt",
+          "readme": "examples/hal/cortex/get_systick/README.md",
+          "readme_sha256": "f438cad31301b39211343423d34e79f9fcd8fa40cfcf5bc834e2fd5a5345a0a1",
+          "headings_and_board_lines": [
+            {
+              "line": 3,
+              "text": "# __Example: *hal_cortex_get_systick*__"
+            },
+            {
+              "line": 12,
+              "text": "## __1. Detailed scenario__"
+            },
+            {
+              "line": 31,
+              "text": "## __2. Example configuration__"
+            },
+            {
+              "line": 54,
+              "text": "## __3. Hardware environment and setup__"
+            },
+            {
+              "line": 56,
+              "text": "### __3.1. Generic Setup__"
+            },
+            {
+              "line": 60,
+              "text": "### __3.2. Specific board setups__"
+            },
+            {
+              "line": 67,
+              "text": "    <summary>On board NUCLEO-C542RC.</summary>"
+            },
+            {
+              "line": 101,
+              "text": "## __4. Troubleshooting__"
+            },
+            {
+              "line": 111,
+              "text": "## __5. See Also__"
+            },
+            {
+              "line": 128,
+              "text": "## __6. License__"
+            }
+          ]
+        }
+      ],
+      "validation": "目录/README核对；本篇未编译或上板"
+    },
+    {
+      "group": "系统",
+      "resource": "LPDMA",
+      "purpose": "按请求搬运数据块",
+      "examples": [
+        "hal/dma/trigger"
+      ],
+      "article": "#12、#19、#32",
+      "pitfall": "请求、触发、传输完成不是同一件事",
+      "source": [
+        {
+          "path": "examples/hal/dma/trigger",
+          "c542_cmake": "examples/hal/dma/trigger/NUCLEO-C542RC/cmake/CMakeLists.txt",
+          "readme": "examples/hal/dma/trigger/README.md",
+          "readme_sha256": "66046bee49f6a94c56ffa047d08eaca5fa2ccdd69b0013db9958fcdb0e9bb2f0",
+          "headings_and_board_lines": [
+            {
+              "line": 3,
+              "text": "# __Example: *hal_dma_trigger*__"
+            },
+            {
+              "line": 12,
+              "text": "## __1. Detailed scenario__"
+            },
+            {
+              "line": 48,
+              "text": "## __2. Example configuration__"
+            },
+            {
+              "line": 75,
+              "text": "## __3. Hardware environment and setup__"
+            },
+            {
+              "line": 77,
+              "text": "### __3.1. Generic Setup__"
+            },
+            {
+              "line": 81,
+              "text": "### __3.2. Specific board setups__"
+            },
+            {
+              "line": 89,
+              "text": "    <summary>On board NUCLEO-C542RC.</summary>"
+            },
+            {
+              "line": 120,
+              "text": "## __4. Troubleshooting__"
+            },
+            {
+              "line": 141,
+              "text": "## __5. See Also__"
+            },
+            {
+              "line": 152,
+              "text": "## __6. License__"
+            }
+          ]
+        }
+      ],
+      "validation": "目录/README核对；本篇未编译或上板"
+    },
+    {
+      "group": "系统",
+      "resource": "Flash / EDATA",
+      "purpose": "保存程序与非易失数据",
+      "examples": [
+        "hal/flash/edata_erase_program"
+      ],
+      "article": "#22、#25",
+      "pitfall": "EDATA与主Flash方案分开；先读风险",
+      "source": [
+        {
+          "path": "examples/hal/flash/edata_erase_program",
+          "c542_cmake": "examples/hal/flash/edata_erase_program/NUCLEO-C542RC/cmake/CMakeLists.txt",
+          "readme": "examples/hal/flash/edata_erase_program/README.md",
+          "readme_sha256": "722d935d69759d1a78aabe7c6b50b877ef55c01c4d3797fd6c1e3b77d5fec976",
+          "headings_and_board_lines": [
+            {
+              "line": 3,
+              "text": "# __Example: *hal_flash_edata_erase_program*__"
+            },
+            {
+              "line": 12,
+              "text": "## __1. Detailed scenario__"
+            },
+            {
+              "line": 48,
+              "text": "## __2. Example configuration__"
+            },
+            {
+              "line": 79,
+              "text": "## __3. Hardware environment and setup__"
+            },
+            {
+              "line": 81,
+              "text": "### __3.1. Generic Setup__"
+            },
+            {
+              "line": 92,
+              "text": "### __3.2. Specific board setups__"
+            },
+            {
+              "line": 124,
+              "text": "    <summary>On board NUCLEO-C542RC.</summary>"
+            },
+            {
+              "line": 161,
+              "text": "## __4. Troubleshooting__"
+            },
+            {
+              "line": 176,
+              "text": "## __5. See Also__"
+            },
+            {
+              "line": 187,
+              "text": "## __6. License__"
+            }
+          ]
+        }
+      ],
+      "validation": "目录/README核对；本篇未编译或上板"
+    },
+    {
+      "group": "系统",
+      "resource": "RAMCFG",
+      "purpose": "SRAM保护与ECC故障演示",
+      "examples": [
+        "hal/ramcfg/ecc_error_generation"
+      ],
+      "article": "#24",
+      "pitfall": "故障注入例程不能直接放进正常业务",
+      "source": [
+        {
+          "path": "examples/hal/ramcfg/ecc_error_generation",
+          "c542_cmake": "examples/hal/ramcfg/ecc_error_generation/NUCLEO-C542RC/cmake/CMakeLists.txt",
+          "readme": "examples/hal/ramcfg/ecc_error_generation/README.md",
+          "readme_sha256": "dd7dc50bd04bc1907f55c054a0e2ff3c82879fac4f9d88d6f111dded5d9fe609",
+          "headings_and_board_lines": [
+            {
+              "line": 3,
+              "text": "# __Example: *hal_ramcfg_ecc_error_generation*__"
+            },
+            {
+              "line": 13,
+              "text": "## __1. Detailed scenario__"
+            },
+            {
+              "line": 43,
+              "text": "## __2. Example configuration__"
+            },
+            {
+              "line": 56,
+              "text": "## __3. Hardware environment and setup__"
+            },
+            {
+              "line": 58,
+              "text": "### __3.1. Generic Setup__"
+            },
+            {
+              "line": 91,
+              "text": "### __3.2. Specific board setups__"
+            },
+            {
+              "line": 109,
+              "text": "    <summary>On board NUCLEO-C542RC.</summary>"
+            },
+            {
+              "line": 143,
+              "text": "## __4. Troubleshooting__"
+            },
+            {
+              "line": 156,
+              "text": "## __5. See Also__"
+            },
+            {
+              "line": 172,
+              "text": "## __6. License__"
+            }
+          ]
+        }
+      ],
+      "validation": "目录/README核对；本篇未编译或上板"
+    },
+    {
+      "group": "系统",
+      "resource": "PWR / PVD",
+      "purpose": "休眠、唤醒与电压监测",
+      "examples": [
+        "hal/pwr/stop1",
+        "hal/pwr/pvd"
+      ],
+      "article": "#23",
+      "pitfall": "能唤醒与电流达标要分别验收",
+      "source": [
+        {
+          "path": "examples/hal/pwr/stop1",
+          "c542_cmake": "examples/hal/pwr/stop1/NUCLEO-C542RC/cmake/CMakeLists.txt",
+          "readme": "examples/hal/pwr/stop1/README.md",
+          "readme_sha256": "06795a768c2347a1e8c4083263f9829bf9399fc42cfe1e53ff68289785d36ff5",
+          "headings_and_board_lines": [
+            {
+              "line": 3,
+              "text": "# __Example: *hal_pwr_stop1*__"
+            },
+            {
+              "line": 12,
+              "text": "## __1. Detailed scenario__"
+            },
+            {
+              "line": 29,
+              "text": "## __2. Example configuration__"
+            },
+            {
+              "line": 48,
+              "text": "## __3. Hardware environment and setup__"
+            },
+            {
+              "line": 50,
+              "text": "### __3.1. Generic Setup__"
+            },
+            {
+              "line": 79,
+              "text": "### __3.2. Specific board setups__"
+            },
+            {
+              "line": 100,
+              "text": "    <summary>On board NUCLEO-C542RC.</summary>"
+            },
+            {
+              "line": 146,
+              "text": "## __4. Troubleshooting__"
+            },
+            {
+              "line": 171,
+              "text": "## __5. See Also__"
+            },
+            {
+              "line": 188,
+              "text": "## __6. License__"
+            }
+          ]
+        },
+        {
+          "path": "examples/hal/pwr/pvd",
+          "c542_cmake": "examples/hal/pwr/pvd/NUCLEO-C542RC/cmake/CMakeLists.txt",
+          "readme": "examples/hal/pwr/pvd/README.md",
+          "readme_sha256": "218a6d854a1c93e388f680c9178ba341f85bc0ddccb98a8930f9af20dfd401c1",
+          "headings_and_board_lines": [
+            {
+              "line": 3,
+              "text": "# __Example: *hal_pwr_pvd*__"
+            },
+            {
+              "line": 15,
+              "text": "## __1. Detailed scenario__"
+            },
+            {
+              "line": 44,
+              "text": "## __2. Example configuration__"
+            },
+            {
+              "line": 57,
+              "text": "## __3. Hardware environment and setup__"
+            },
+            {
+              "line": 59,
+              "text": "### __3.1. Generic Setup__"
+            },
+            {
+              "line": 94,
+              "text": " ### __3.2. Specific board setups__"
+            },
+            {
+              "line": 106,
+              "text": "  | NUCLEO-C542RC  | JP5             |"
+            },
+            {
+              "line": 111,
+              "text": "    <summary>On board NUCLEO-C542RC.</summary>"
+            },
+            {
+              "line": 145,
+              "text": "## __4. Troubleshooting__"
+            },
+            {
+              "line": 154,
+              "text": "## __5. See Also__"
+            },
+            {
+              "line": 173,
+              "text": "## __6. License__"
+            }
+          ]
+        }
+      ],
+      "validation": "目录/README核对；本篇未编译或上板"
+    },
+    {
+      "group": "系统",
+      "resource": "RTC / TAMP",
+      "purpose": "日历、时间戳与篡改事件",
+      "examples": [
+        "hal/rtc/timestamp",
+        "hal/tamp/erase_backup_registers"
+      ],
+      "article": "#20、#24",
+      "pitfall": "备份域和侵入擦除行为先看清",
+      "source": [
+        {
+          "path": "examples/hal/rtc/timestamp",
+          "c542_cmake": "examples/hal/rtc/timestamp/NUCLEO-C542RC/cmake/CMakeLists.txt",
+          "readme": "examples/hal/rtc/timestamp/README.md",
+          "readme_sha256": "05a71aebb456692a4e6c99cc462b40f931fd13276c0c844f9a43f28dfd2c28da",
+          "headings_and_board_lines": [
+            {
+              "line": 3,
+              "text": "# __Example: *hal_rtc_timestamp*__"
+            },
+            {
+              "line": 12,
+              "text": "## __1. Detailed scenario__"
+            },
+            {
+              "line": 40,
+              "text": "## __2. Example configuration__"
+            },
+            {
+              "line": 55,
+              "text": "## __3. Hardware environment and setup__"
+            },
+            {
+              "line": 57,
+              "text": "### __3.1. Generic Setup__"
+            },
+            {
+              "line": 61,
+              "text": "### __3.2. Specific board setups__"
+            },
+            {
+              "line": 68,
+              "text": "    <summary>On board NUCLEO-C542RC.</summary>"
+            },
+            {
+              "line": 111,
+              "text": "## __4. Troubleshooting__"
+            },
+            {
+              "line": 129,
+              "text": "## __5. See Also__"
+            },
+            {
+              "line": 143,
+              "text": "## __6. License__"
+            }
+          ]
+        },
+        {
+          "path": "examples/hal/tamp/erase_backup_registers",
+          "c542_cmake": "examples/hal/tamp/erase_backup_registers/NUCLEO-C542RC/cmake/CMakeLists.txt",
+          "readme": "examples/hal/tamp/erase_backup_registers/README.md",
+          "readme_sha256": "772e9cc0eddf093970a801f51a00d40799d2568cc6296be8b927998882420838",
+          "headings_and_board_lines": [
+            {
+              "line": 3,
+              "text": "# __Example: *hal_tamp_erase_backup_registers*__"
+            },
+            {
+              "line": 12,
+              "text": "## __1. Detailed scenario__"
+            },
+            {
+              "line": 48,
+              "text": "## __2. Example configuration__"
+            },
+            {
+              "line": 73,
+              "text": "## __3. Hardware environment and setup__"
+            },
+            {
+              "line": 75,
+              "text": "### __3.1. Generic Setup__"
+            },
+            {
+              "line": 109,
+              "text": "### __3.2. Specific board setups__"
+            },
+            {
+              "line": 116,
+              "text": "    <summary>On board NUCLEO-C542RC.</summary>"
+            },
+            {
+              "line": 162,
+              "text": "## __4. Troubleshooting__"
+            },
+            {
+              "line": 187,
+              "text": "## __5. See Also__"
+            },
+            {
+              "line": 200,
+              "text": "## __6. License__"
+            }
+          ]
+        }
+      ],
+      "validation": "目录/README核对；本篇未编译或上板"
+    },
+    {
+      "group": "系统",
+      "resource": "IWDG / WWDG",
+      "purpose": "检查程序活性或喂狗窗口",
+      "examples": [
+        "hal/iwdg/reset",
+        "hal/wwdg/reset"
+      ],
+      "article": "#21",
+      "pitfall": "按业务健康条件喂狗，不无条件刷新",
+      "source": [
+        {
+          "path": "examples/hal/iwdg/reset",
+          "c542_cmake": "examples/hal/iwdg/reset/NUCLEO-C542RC/cmake/CMakeLists.txt",
+          "readme": "examples/hal/iwdg/reset/README.md",
+          "readme_sha256": "34778821ede25102c89b592c574b8a46f08c91f3bf9f1eb0adf87caae3d2b6ea",
+          "headings_and_board_lines": [
+            {
+              "line": 3,
+              "text": "# __Example: *hal_iwdg_reset*__"
+            },
+            {
+              "line": 12,
+              "text": "## __1. Detailed scenario__"
+            },
+            {
+              "line": 41,
+              "text": "## __2. Example configuration__"
+            },
+            {
+              "line": 49,
+              "text": "## __3. Hardware environment and setup__"
+            },
+            {
+              "line": 51,
+              "text": "### __3.1. Generic Setup__"
+            },
+            {
+              "line": 59,
+              "text": "### __3.2. Specific board setups__"
+            },
+            {
+              "line": 64,
+              "text": "    <summary>On board NUCLEO-C542RC.</summary>"
+            },
+            {
+              "line": 98,
+              "text": "## __4. Troubleshooting__"
+            },
+            {
+              "line": 115,
+              "text": "## __5. See Also__"
+            },
+            {
+              "line": 129,
+              "text": "## __6. License__"
+            }
+          ]
+        },
+        {
+          "path": "examples/hal/wwdg/reset",
+          "c542_cmake": "examples/hal/wwdg/reset/NUCLEO-C542RC/cmake/CMakeLists.txt",
+          "readme": "examples/hal/wwdg/reset/README.md",
+          "readme_sha256": "f685d4c0bb3d28960ac2c916d55f06d8ad96c1e5c78e4baf0e4cfafa8ff3d7c3",
+          "headings_and_board_lines": [
+            {
+              "line": 3,
+              "text": "# __Example: *hal_wwdg_reset*__"
+            },
+            {
+              "line": 12,
+              "text": "## __1. Detailed scenario__"
+            },
+            {
+              "line": 43,
+              "text": "## __2. Example configuration__"
+            },
+            {
+              "line": 54,
+              "text": "## __3. Hardware environment and setup__"
+            },
+            {
+              "line": 56,
+              "text": "### __3.1. Generic Setup__"
+            },
+            {
+              "line": 61,
+              "text": "### __3.2. Specific board setups__"
+            },
+            {
+              "line": 67,
+              "text": "## __4. Troubleshooting__"
+            },
+            {
+              "line": 92,
+              "text": "## __5. See Also__"
+            },
+            {
+              "line": 106,
+              "text": "## __6. License__"
+            }
+          ]
+        }
+      ],
+      "validation": "目录/README核对；本篇未编译或上板"
+    },
+    {
+      "group": "系统",
+      "resource": "SBS / DBGMCU",
+      "purpose": "系统控制、器件身份与调试",
+      "examples": [
+        "hal/sbs/fpu_interrupt",
+        "hal/dbgmcu/read_device_info"
+      ],
+      "article": "#24及手册",
+      "pitfall": "先识别器件修订，再判断勘误适用性",
+      "source": [
+        {
+          "path": "examples/hal/sbs/fpu_interrupt",
+          "c542_cmake": "examples/hal/sbs/fpu_interrupt/NUCLEO-C542RC/cmake/CMakeLists.txt",
+          "readme": "examples/hal/sbs/fpu_interrupt/README.md",
+          "readme_sha256": "dda3bae70732521b212d4098d29c01c118f27b634d6d4a5b8a1f2d96f40e92e9",
+          "headings_and_board_lines": [
+            {
+              "line": 3,
+              "text": "# __Example: *hal_sbs_fpu_interrupt*__"
+            },
+            {
+              "line": 12,
+              "text": "## __1. Detailed scenario__"
+            },
+            {
+              "line": 31,
+              "text": "## __2. Example configuration__"
+            },
+            {
+              "line": 43,
+              "text": "## __3. Hardware environment and setup__"
+            },
+            {
+              "line": 45,
+              "text": "### __3.1. Generic Setup__"
+            },
+            {
+              "line": 49,
+              "text": "### __3.2. Specific board setups__"
+            },
+            {
+              "line": 54,
+              "text": "    <summary>On board NUCLEO-C542RC.</summary>"
+            },
+            {
+              "line": 85,
+              "text": "## __4. Troubleshooting__"
+            },
+            {
+              "line": 97,
+              "text": "## __5. See Also__"
+            },
+            {
+              "line": 111,
+              "text": "## __6. License__"
+            }
+          ]
+        },
+        {
+          "path": "examples/hal/dbgmcu/read_device_info",
+          "c542_cmake": "examples/hal/dbgmcu/read_device_info/NUCLEO-C542RC/cmake/CMakeLists.txt",
+          "readme": "examples/hal/dbgmcu/read_device_info/README.md",
+          "readme_sha256": "2071705bda242daf4739aaec3ba0eecfdd3a4fa0206b52a5a445b044d7bb501a",
+          "headings_and_board_lines": [
+            {
+              "line": 3,
+              "text": "# __Example: *hal_dbgmcu_read_device_info*__"
+            },
+            {
+              "line": 15,
+              "text": "## __1. Detailed scenario__"
+            },
+            {
+              "line": 36,
+              "text": "## __2. Example configuration__"
+            },
+            {
+              "line": 43,
+              "text": "## __3. Hardware environment and setup__"
+            },
+            {
+              "line": 45,
+              "text": "### __3.1. Generic Setup__"
+            },
+            {
+              "line": 49,
+              "text": "### __3.2. Specific board setups__"
+            },
+            {
+              "line": 57,
+              "text": "    <summary>On board NUCLEO-C542RC.</summary>"
+            },
+            {
+              "line": 91,
+              "text": "## __4. Troubleshooting__"
+            },
+            {
+              "line": 98,
+              "text": "## __5. See Also__"
+            },
+            {
+              "line": 112,
+              "text": "## __6. License__"
+            }
+          ]
+        }
+      ],
+      "validation": "目录/README核对；本篇未编译或上板"
+    },
+    {
+      "group": "定时",
+      "resource": "基本TIM / HAL节拍",
+      "purpose": "产生周期节拍",
+      "examples": [
+        "hal/timebase/tim"
+      ],
+      "article": "#14",
+      "pitfall": "这是HAL时基例程，先理清与SysTick分工",
+      "source": [
+        {
+          "path": "examples/hal/timebase/tim",
+          "c542_cmake": "examples/hal/timebase/tim/NUCLEO-C542RC/cmake/CMakeLists.txt",
+          "readme": "examples/hal/timebase/tim/README.md",
+          "readme_sha256": "689696d54d56bc887761f715491de57c9a60658020b0d911e8a17097477e0530",
+          "headings_and_board_lines": [
+            {
+              "line": 3,
+              "text": "# __Example: *hal_timebase_tim*__"
+            },
+            {
+              "line": 12,
+              "text": "## __1. Detailed scenario__"
+            },
+            {
+              "line": 29,
+              "text": "## __2. Example configuration__"
+            },
+            {
+              "line": 127,
+              "text": "## __3. Hardware environment and setup__"
+            },
+            {
+              "line": 129,
+              "text": "### __3.1. Generic Setup__"
+            },
+            {
+              "line": 137,
+              "text": "### __3.2. Specific board setups__"
+            },
+            {
+              "line": 198,
+              "text": "    <summary>On board NUCLEO-C542RC.</summary>"
+            },
+            {
+              "line": 238,
+              "text": "## __4. Troubleshooting__"
+            },
+            {
+              "line": 249,
+              "text": "## __5. See Also__"
+            },
+            {
+              "line": 268,
+              "text": "## __6. License__"
+            }
+          ]
+        }
+      ],
+      "validation": "目录/README核对；本篇未编译或上板"
+    },
+    {
+      "group": "定时",
+      "resource": "TIM PWM / 输出比较",
+      "purpose": "生成周期与占空比",
+      "examples": [
+        "hal/tim/pwm_output"
+      ],
+      "article": "#06、#15",
+      "pitfall": "引脚AF、预装载、通道使能一起看",
+      "source": [
+        {
+          "path": "examples/hal/tim/pwm_output",
+          "c542_cmake": "examples/hal/tim/pwm_output/NUCLEO-C542RC/cmake/CMakeLists.txt",
+          "readme": "examples/hal/tim/pwm_output/README.md",
+          "readme_sha256": "515329c32e360bf75c06ec255b78d2f2e45d6e50d4f6bd1c0e0166dfeec9d2f9",
+          "headings_and_board_lines": [
+            {
+              "line": 3,
+              "text": "# __Example: *hal_tim_pwm_output*__"
+            },
+            {
+              "line": 13,
+              "text": "## __1. Detailed scenario__"
+            },
+            {
+              "line": 28,
+              "text": "## __2. Example configuration__"
+            },
+            {
+              "line": 32,
+              "text": "### __2.1. Timer configuration__"
+            },
+            {
+              "line": 46,
+              "text": "#### __2.1.1. PWM frequency and duty cycles configuration:__"
+            },
+            {
+              "line": 103,
+              "text": "#### __2.1.2. PWM frequency and duty cycles limits:__"
+            },
+            {
+              "line": 147,
+              "text": "### __2.2. GPIO configuration__"
+            },
+            {
+              "line": 157,
+              "text": "## __3. Hardware environment and setup__"
+            },
+            {
+              "line": 159,
+              "text": "### __3.1. Generic Setup__"
+            },
+            {
+              "line": 163,
+              "text": "### __3.2. Specific board setups__"
+            },
+            {
+              "line": 220,
+              "text": "    <summary>On board NUCLEO-C542RC.</summary>"
+            },
+            {
+              "line": 274,
+              "text": "## __4. Troubleshooting__"
+            },
+            {
+              "line": 283,
+              "text": "## __5. See Also__"
+            },
+            {
+              "line": 302,
+              "text": "## __6. License__"
+            }
+          ]
+        }
+      ],
+      "validation": "目录/README核对；本篇未编译或上板"
+    },
+    {
+      "group": "定时",
+      "resource": "TIM 输入捕获",
+      "purpose": "测边沿间隔、频率与占空比",
+      "examples": [
+        "hal/tim/input_capture"
+      ],
+      "article": "#16",
+      "pitfall": "计数溢出和信号自环要写入验收",
+      "source": [
+        {
+          "path": "examples/hal/tim/input_capture",
+          "c542_cmake": "examples/hal/tim/input_capture/NUCLEO-C542RC/cmake/CMakeLists.txt",
+          "readme": "examples/hal/tim/input_capture/README.md",
+          "readme_sha256": "5df2a4310384091bfb64a5175084f4c3b224459d024b8ce75390d0dd024bb10c",
+          "headings_and_board_lines": [
+            {
+              "line": 3,
+              "text": "# __Example: *hal_tim_input_capture*__"
+            },
+            {
+              "line": 12,
+              "text": "## __1. Detailed scenario__"
+            },
+            {
+              "line": 31,
+              "text": "## __2. Example configuration__"
+            },
+            {
+              "line": 35,
+              "text": "### __2.1. Timer configuration:__"
+            },
+            {
+              "line": 62,
+              "text": "### __2.2. Input Signal frequency configuration:__"
+            },
+            {
+              "line": 171,
+              "text": "## __3. Hardware environment and setup__"
+            },
+            {
+              "line": 173,
+              "text": "### __3.1. Generic Setup__"
+            },
+            {
+              "line": 179,
+              "text": "### __3.2. Specific board setups__"
+            },
+            {
+              "line": 224,
+              "text": "    <summary>On board NUCLEO-C542RC.</summary>"
+            },
+            {
+              "line": 261,
+              "text": "## __4. Troubleshooting__"
+            },
+            {
+              "line": 270,
+              "text": "## __5. See Also__"
+            },
+            {
+              "line": 290,
+              "text": "## __6. License__"
+            }
+          ]
+        }
+      ],
+      "validation": "目录/README核对；本篇未编译或上板"
+    },
+    {
+      "group": "定时",
+      "resource": "LPTIM",
+      "purpose": "低功耗定时与脉冲计数",
+      "examples": [
+        "hal/lptim/pulse_counter"
+      ],
+      "article": "#17",
+      "pitfall": "所选时钟与输入频率限制都要核对",
+      "source": [
+        {
+          "path": "examples/hal/lptim/pulse_counter",
+          "c542_cmake": "examples/hal/lptim/pulse_counter/NUCLEO-C542RC/cmake/CMakeLists.txt",
+          "readme": "examples/hal/lptim/pulse_counter/README.md",
+          "readme_sha256": "89e803f59550690e458cb290e0ff86d4307af429370d4587bf1b801b34bb03c2",
+          "headings_and_board_lines": [
+            {
+              "line": 3,
+              "text": "# __Example: *hal_lptim_pulse_counter*__"
+            },
+            {
+              "line": 12,
+              "text": "## __1. Detailed scenario__"
+            },
+            {
+              "line": 27,
+              "text": "## __2. Example configuration__"
+            },
+            {
+              "line": 44,
+              "text": "## __3. Hardware environment and setup__"
+            },
+            {
+              "line": 46,
+              "text": "### __3.1. Generic Setup__"
+            },
+            {
+              "line": 75,
+              "text": "### __3.2. Specific board setups__"
+            },
+            {
+              "line": 82,
+              "text": "    <summary>On board NUCLEO-C542RC.</summary>"
+            },
+            {
+              "line": 116,
+              "text": "## __4. Troubleshooting__"
+            },
+            {
+              "line": 132,
+              "text": "## __5. See Also__"
+            },
+            {
+              "line": 150,
+              "text": "## __6. License__"
+            }
+          ]
+        }
+      ],
+      "validation": "目录/README核对；本篇未编译或上板"
+    },
+    {
+      "group": "模拟",
+      "resource": "ADC",
+      "purpose": "把电压转换成数字",
+      "examples": [
+        "hal/adc/temperature_sensor",
+        "ll/adc/multi_channels_dma"
+      ],
+      "article": "#30～#33、#36",
+      "pitfall": "参考电压、采样时间、缓冲区交接分别核对",
+      "source": [
+        {
+          "path": "examples/hal/adc/temperature_sensor",
+          "c542_cmake": "examples/hal/adc/temperature_sensor/NUCLEO-C542RC/cmake/CMakeLists.txt",
+          "readme": "examples/hal/adc/temperature_sensor/README.md",
+          "readme_sha256": "793b7af059f4ca52104931acd958093d32fe3bac31402fbf25b4b9a68918d66e",
+          "headings_and_board_lines": [
+            {
+              "line": 3,
+              "text": "# __Example: *hal_adc_temperature_sensor*__"
+            },
+            {
+              "line": 13,
+              "text": "## __1. Detailed scenario__"
+            },
+            {
+              "line": 44,
+              "text": "## __2. Example configuration__"
+            },
+            {
+              "line": 58,
+              "text": "## __3. Hardware environment and setup__"
+            },
+            {
+              "line": 60,
+              "text": "### __3.1. Generic Setup__"
+            },
+            {
+              "line": 64,
+              "text": "### __3.2. Specific board setups__"
+            },
+            {
+              "line": 72,
+              "text": "    <summary>On board NUCLEO-C542RC.</summary>"
+            },
+            {
+              "line": 133,
+              "text": "## __4. Troubleshooting__"
+            },
+            {
+              "line": 145,
+              "text": "## __5. See Also__"
+            },
+            {
+              "line": 162,
+              "text": "## __6. License__"
+            }
+          ]
+        },
+        {
+          "path": "examples/ll/adc/multi_channels_dma",
+          "c542_cmake": "examples/ll/adc/multi_channels_dma/NUCLEO-C542RC/cmake/CMakeLists.txt",
+          "readme": "examples/ll/adc/multi_channels_dma/README.md",
+          "readme_sha256": "129aebc84f589dcd89c905b7394ae80d19f88d69fb608614f9a3b5d68a825c53",
+          "headings_and_board_lines": [
+            {
+              "line": 3,
+              "text": "# __Example: *ll_adc_multi_channels_dma*__"
+            },
+            {
+              "line": 13,
+              "text": "## __1. Detailed scenario__"
+            },
+            {
+              "line": 33,
+              "text": "## __2. Example configuration__"
+            },
+            {
+              "line": 49,
+              "text": "## __3. Hardware environment and setup__"
+            },
+            {
+              "line": 51,
+              "text": "### __3.1. Generic Setup__"
+            },
+            {
+              "line": 55,
+              "text": "### __3.2. Specific board setups__"
+            },
+            {
+              "line": 65,
+              "text": "    <summary>On board NUCLEO-C542RC.</summary>"
+            },
+            {
+              "line": 103,
+              "text": "## __4. Troubleshooting__"
+            },
+            {
+              "line": 132,
+              "text": "## __5. See Also__"
+            },
+            {
+              "line": 167,
+              "text": "## __6. License__"
+            }
+          ]
+        }
+      ],
+      "validation": "目录/README核对；本篇未编译或上板"
+    },
+    {
+      "group": "模拟",
+      "resource": "DAC",
+      "purpose": "生成模拟电平或波形",
+      "examples": [
+        "ll/dac/simple_conversion"
+      ],
+      "article": "#34",
+      "pitfall": "输出缓冲范围与真实负载影响结果",
+      "source": [
+        {
+          "path": "examples/ll/dac/simple_conversion",
+          "c542_cmake": "examples/ll/dac/simple_conversion/NUCLEO-C542RC/cmake/CMakeLists.txt",
+          "readme": "examples/ll/dac/simple_conversion/README.md",
+          "readme_sha256": "788df946787e0a19ca1817f3cfe3988683b7499995c1c40769bef407fd463d0f",
+          "headings_and_board_lines": [
+            {
+              "line": 3,
+              "text": "# __Example: *ll_dac_simple_conversion*__"
+            },
+            {
+              "line": 12,
+              "text": "## __1. Detailed scenario__"
+            },
+            {
+              "line": 29,
+              "text": "## __2. Example configuration__"
+            },
+            {
+              "line": 39,
+              "text": "## __3. Hardware environment and setup__"
+            },
+            {
+              "line": 41,
+              "text": "### __3.1. Generic Setup__"
+            },
+            {
+              "line": 47,
+              "text": "### __3.2. Specific board setups__"
+            },
+            {
+              "line": 54,
+              "text": "    <summary>On board NUCLEO-C542RC.</summary>"
+            },
+            {
+              "line": 94,
+              "text": "## __4. Troubleshooting__"
+            },
+            {
+              "line": 102,
+              "text": "## __5. See Also__"
+            },
+            {
+              "line": 121,
+              "text": "## __6. License__"
+            }
+          ]
+        }
+      ],
+      "validation": "目录/README核对；本篇未编译或上板"
+    },
+    {
+      "group": "模拟",
+      "resource": "COMP",
+      "purpose": "比较两路模拟电压",
+      "examples": [
+        "ll/comp/vref_it"
+      ],
+      "article": "#35",
+      "pitfall": "迟滞、路由和芯片勘误先确认",
+      "source": [
+        {
+          "path": "examples/ll/comp/vref_it",
+          "c542_cmake": "examples/ll/comp/vref_it/NUCLEO-C542RC/cmake/CMakeLists.txt",
+          "readme": "examples/ll/comp/vref_it/README.md",
+          "readme_sha256": "923a60a4b5cc4272b7b4ee3cf4a6a6ae09b46b0666ba22b220ff138407bfc09b",
+          "headings_and_board_lines": [
+            {
+              "line": 3,
+              "text": "# __Example: *ll_comp_vref_it*__"
+            },
+            {
+              "line": 12,
+              "text": "## __1. Detailed scenario__"
+            },
+            {
+              "line": 34,
+              "text": "## __2. Example configuration__"
+            },
+            {
+              "line": 59,
+              "text": "## __3. Hardware environment and setup__"
+            },
+            {
+              "line": 61,
+              "text": "### __3.1. Generic Setup__"
+            },
+            {
+              "line": 99,
+              "text": "### __3.2. Specific board setups__"
+            },
+            {
+              "line": 106,
+              "text": "  <summary>On board NUCLEO-C542RC.</summary>"
+            },
+            {
+              "line": 131,
+              "text": "## __4. Troubleshooting__"
+            },
+            {
+              "line": 157,
+              "text": "## __5. See Also__"
+            },
+            {
+              "line": 168,
+              "text": "## __6. License__"
+            }
+          ]
+        }
+      ],
+      "validation": "目录/README核对；本篇未编译或上板"
+    },
+    {
+      "group": "模拟",
+      "resource": "OPAMP",
+      "purpose": "片内跟随或增益处理",
+      "examples": [
+        "ll/opamp/programmable_gain_amplifier"
+      ],
+      "article": "#35",
+      "pitfall": "增益和输出摆幅都受工作条件约束",
+      "source": [
+        {
+          "path": "examples/ll/opamp/programmable_gain_amplifier",
+          "c542_cmake": "examples/ll/opamp/programmable_gain_amplifier/NUCLEO-C542RC/cmake/CMakeLists.txt",
+          "readme": "examples/ll/opamp/programmable_gain_amplifier/README.md",
+          "readme_sha256": "94b1521d4adac0395ecfe5f7707e648ca78e7bef204db37fe4fb2d60f7c01e34",
+          "headings_and_board_lines": [
+            {
+              "line": 3,
+              "text": "# __Example: *ll_opamp_programmable_gain_amplifier*__"
+            },
+            {
+              "line": 13,
+              "text": "## __1. Detailed scenario__"
+            },
+            {
+              "line": 32,
+              "text": "## __2. Example configuration__"
+            },
+            {
+              "line": 44,
+              "text": "## __3. Hardware environment and setup__"
+            },
+            {
+              "line": 46,
+              "text": "### __3.1. Generic Setup__"
+            },
+            {
+              "line": 86,
+              "text": "### __3.2. Specific board setups__"
+            },
+            {
+              "line": 93,
+              "text": "    <summary>On board NUCLEO-C542RC.</summary>"
+            },
+            {
+              "line": 109,
+              "text": "## __4. Troubleshooting__"
+            },
+            {
+              "line": 132,
+              "text": "## __5. See Also__"
+            },
+            {
+              "line": 151,
+              "text": "## __6. License__"
+            }
+          ]
+        }
+      ],
+      "validation": "目录/README核对；本篇未编译或上板"
+    },
+    {
+      "group": "通信",
+      "resource": "UART / USART / LPUART",
+      "purpose": "异步命令、日志与低功耗串口",
+      "examples": [
+        "hal/uart/echo_it",
+        "hal/uart/echo_dma",
+        "ll/lpuart/wakeup_from_stop"
+      ],
+      "article": "#10～#13",
+      "pitfall": "帧格式、超时、溢出与DMA边界要匹配",
+      "source": [
+        {
+          "path": "examples/hal/uart/echo_it",
+          "c542_cmake": "examples/hal/uart/echo_it/NUCLEO-C542RC/cmake/CMakeLists.txt",
+          "readme": "examples/hal/uart/echo_it/README.md",
+          "readme_sha256": "9927be34b90a8fba1c82def1b171fa2d5539c291fc19aa5ca109133868324446",
+          "headings_and_board_lines": [
+            {
+              "line": 3,
+              "text": "# __Example: *hal_uart_echo_it*__"
+            },
+            {
+              "line": 12,
+              "text": "## __1. Detailed scenario__"
+            },
+            {
+              "line": 39,
+              "text": "## __2. Example configuration__"
+            },
+            {
+              "line": 79,
+              "text": "## __3. Hardware environment and setup__"
+            },
+            {
+              "line": 81,
+              "text": "### __3.1. Generic Setup__"
+            },
+            {
+              "line": 117,
+              "text": "### __3.2. Specific board setups__"
+            },
+            {
+              "line": 124,
+              "text": "    <summary>On board NUCLEO-C542RC.</summary>"
+            },
+            {
+              "line": 173,
+              "text": "## __4. Troubleshooting__"
+            },
+            {
+              "line": 190,
+              "text": "## __5. See Also__"
+            },
+            {
+              "line": 207,
+              "text": "## __6. License__"
+            }
+          ]
+        },
+        {
+          "path": "examples/hal/uart/echo_dma",
+          "c542_cmake": "examples/hal/uart/echo_dma/NUCLEO-C542RC/cmake/CMakeLists.txt",
+          "readme": "examples/hal/uart/echo_dma/README.md",
+          "readme_sha256": "4bded33775f39ef492615c1aa8fdf9000a58bc046bc7b0763284f4362174672d",
+          "headings_and_board_lines": [
+            {
+              "line": 3,
+              "text": "# __Example: *hal_uart_echo_dma*__"
+            },
+            {
+              "line": 12,
+              "text": "## __1. Detailed scenario__"
+            },
+            {
+              "line": 44,
+              "text": "## __2. Example configuration__"
+            },
+            {
+              "line": 96,
+              "text": "## __3. Hardware environment and setup__"
+            },
+            {
+              "line": 98,
+              "text": "### __3.1. Generic Setup__"
+            },
+            {
+              "line": 134,
+              "text": "### __3.2. Specific board setups__"
+            },
+            {
+              "line": 141,
+              "text": "    <summary>On board NUCLEO-C542RC.</summary>"
+            },
+            {
+              "line": 178,
+              "text": "## __4. Troubleshooting__"
+            },
+            {
+              "line": 193,
+              "text": "## __5. See Also__"
+            },
+            {
+              "line": 209,
+              "text": "## __6. License__"
+            }
+          ]
+        },
+        {
+          "path": "examples/ll/lpuart/wakeup_from_stop",
+          "c542_cmake": "examples/ll/lpuart/wakeup_from_stop/NUCLEO-C542RC/cmake/CMakeLists.txt",
+          "readme": "examples/ll/lpuart/wakeup_from_stop/README.md",
+          "readme_sha256": "2a1675bc3568c695bfa70bd718c749073393db78952796719a2f37242f0aed60",
+          "headings_and_board_lines": [
+            {
+              "line": 3,
+              "text": "# __Example: *ll_lpuart_wakeup_from_stop*__"
+            },
+            {
+              "line": 13,
+              "text": "## __1. Detailed scenario__"
+            },
+            {
+              "line": 45,
+              "text": "## __2. Example configuration__"
+            },
+            {
+              "line": 83,
+              "text": "## __3. Hardware environment and setup__"
+            },
+            {
+              "line": 85,
+              "text": "### __3.1. Generic Setup__"
+            },
+            {
+              "line": 117,
+              "text": "### __3.2. Specific board setups__"
+            },
+            {
+              "line": 124,
+              "text": "    <summary>On board NUCLEO-C542RC.</summary>"
+            },
+            {
+              "line": 181,
+              "text": "### __3.3. Testing the Example__"
+            },
+            {
+              "line": 194,
+              "text": "## __4. Troubleshooting__"
+            },
+            {
+              "line": 206,
+              "text": "## __5. See Also__"
+            },
+            {
+              "line": 220,
+              "text": "## __6. License__"
+            }
+          ]
+        }
+      ],
+      "validation": "目录/README核对；本篇未编译或上板"
+    },
+    {
+      "group": "通信",
+      "resource": "SPI",
+      "purpose": "连接Flash等同步串行器件",
+      "examples": [
+        "parts/w25q128j/read_write"
+      ],
+      "article": "#37",
+      "pitfall": "片选、模式、器件忙状态与板载冲突",
+      "source": [
+        {
+          "path": "examples/parts/w25q128j/read_write",
+          "c542_cmake": "examples/parts/w25q128j/read_write/NUCLEO-C542RC/cmake/CMakeLists.txt",
+          "readme": "examples/parts/w25q128j/read_write/README.md",
+          "readme_sha256": "811a82dcf2d2009ae23a916fa1c65338afd976d237642f25771d40fb73bdc540",
+          "headings_and_board_lines": [
+            {
+              "line": 3,
+              "text": "# __Example: *w25q128j_read_write*__"
+            },
+            {
+              "line": 13,
+              "text": "## __1. Detailed scenario__"
+            },
+            {
+              "line": 44,
+              "text": "## __2. Example configuration__"
+            },
+            {
+              "line": 64,
+              "text": "## __3. Hardware environment and setup__"
+            },
+            {
+              "line": 66,
+              "text": "### __3.1. Generic Setup__"
+            },
+            {
+              "line": 83,
+              "text": "  |          |          CS  *---------------------* CS#                     |"
+            },
+            {
+              "line": 97,
+              "text": "### __3.2. Specific board setups__"
+            },
+            {
+              "line": 104,
+              "text": "    <summary>On board NUCLEO-C542RC.</summary>"
+            },
+            {
+              "line": 153,
+              "text": "## __4. Troubleshooting__"
+            },
+            {
+              "line": 158,
+              "text": "## __5. See Also__"
+            },
+            {
+              "line": 167,
+              "text": "## __6. License__"
+            }
+          ]
+        }
+      ],
+      "validation": "目录/README核对；本篇未编译或上板"
+    },
+    {
+      "group": "通信",
+      "resource": "I²C",
+      "purpose": "共享地址总线连接外设",
+      "examples": [
+        "hal/i2c/eeprom_dma"
+      ],
+      "article": "#38",
+      "pitfall": "地址格式、上拉和设备就绪不能省",
+      "source": [
+        {
+          "path": "examples/hal/i2c/eeprom_dma",
+          "c542_cmake": "examples/hal/i2c/eeprom_dma/NUCLEO-C542RC/cmake/CMakeLists.txt",
+          "readme": "examples/hal/i2c/eeprom_dma/README.md",
+          "readme_sha256": "eeae4ea07365fc4aa012c5f113e29a0bac3326cf15db2dcc7e9b339d2faee8ed",
+          "headings_and_board_lines": [
+            {
+              "line": 3,
+              "text": "# __Example: *hal_i2c_eeprom_dma*__"
+            },
+            {
+              "line": 13,
+              "text": "## __1. Detailed scenario__"
+            },
+            {
+              "line": 38,
+              "text": "## __2. Example configuration__"
+            },
+            {
+              "line": 62,
+              "text": "## __3. Hardware environment and setup__"
+            },
+            {
+              "line": 64,
+              "text": "### __3.1. Generic Setup__"
+            },
+            {
+              "line": 90,
+              "text": "### __3.2. Specific board setups__"
+            },
+            {
+              "line": 95,
+              "text": "    <summary>On board NUCLEO-C542RC.</summary>"
+            },
+            {
+              "line": 135,
+              "text": "## __4. Troubleshooting__"
+            },
+            {
+              "line": 158,
+              "text": "## __5. See Also__"
+            },
+            {
+              "line": 169,
+              "text": "## __6. License__"
+            }
+          ]
+        }
+      ],
+      "validation": "目录/README核对；本篇未编译或上板"
+    },
+    {
+      "group": "通信",
+      "resource": "I3C",
+      "purpose": "面向I3C目标及受约束的混合总线",
+      "examples": [
+        "hal/i3c/private_i2c_dma_controller"
+      ],
+      "article": "#39",
+      "pitfall": "本系列实验为老式I²C目标，非原生I3C验收",
+      "source": [
+        {
+          "path": "examples/hal/i3c/private_i2c_dma_controller",
+          "c542_cmake": "examples/hal/i3c/private_i2c_dma_controller/NUCLEO-C542RC/cmake/CMakeLists.txt",
+          "readme": "examples/hal/i3c/private_i2c_dma_controller/README.md",
+          "readme_sha256": "e98ad60b6fd0d1ca7cbbad509fc89195a51080ab8bb9e36677d58b7bd4107d24",
+          "headings_and_board_lines": [
+            {
+              "line": 3,
+              "text": "# __Example: *hal_i3c_private_i2c_dma_controller*__"
+            },
+            {
+              "line": 16,
+              "text": "## __1. Detailed scenario__"
+            },
+            {
+              "line": 68,
+              "text": "## __2. Example configuration__"
+            },
+            {
+              "line": 102,
+              "text": "## __3. Hardware environment and setup__"
+            },
+            {
+              "line": 104,
+              "text": "### __3.1. Generic Setup__"
+            },
+            {
+              "line": 141,
+              "text": "### __3.2. Specific board setups__"
+            },
+            {
+              "line": 162,
+              "text": "    <summary>On board NUCLEO-C542RC.</summary>"
+            },
+            {
+              "line": 202,
+              "text": "## __4. Troubleshooting__"
+            },
+            {
+              "line": 233,
+              "text": "## __5. See Also__"
+            },
+            {
+              "line": 250,
+              "text": "## __6. License__"
+            }
+          ]
+        }
+      ],
+      "validation": "目录/README核对；本篇未编译或上板"
+    },
+    {
+      "group": "通信",
+      "resource": "FDCAN",
+      "purpose": "仲裁总线上的帧通信",
+      "examples": [
+        "hal/fdcan/loopback",
+        "hal/fdcan/two_boards_com_polling_controller",
+        "hal/fdcan/two_boards_com_polling_responder"
+      ],
+      "article": "#40～#41",
+      "pitfall": "内部回环不验证收发器、端接或远端接收",
+      "source": [
+        {
+          "path": "examples/hal/fdcan/loopback",
+          "c542_cmake": "examples/hal/fdcan/loopback/NUCLEO-C542RC/cmake/CMakeLists.txt",
+          "readme": "examples/hal/fdcan/loopback/README.md",
+          "readme_sha256": "6d20d8ccb0d421fb1fe6a5f27a2fca1599cc16d270d511b8a1d8b88339a68a0f",
+          "headings_and_board_lines": [
+            {
+              "line": 3,
+              "text": "# __Example: *hal_fdcan_loopback*__"
+            },
+            {
+              "line": 12,
+              "text": "## __1. Detailed scenario__"
+            },
+            {
+              "line": 35,
+              "text": "## __2. Example configuration__"
+            },
+            {
+              "line": 48,
+              "text": "## __3. Hardware environment and setup__"
+            },
+            {
+              "line": 50,
+              "text": "### __3.1. Generic Setup__"
+            },
+            {
+              "line": 79,
+              "text": "### __3.2. Specific board setups__"
+            },
+            {
+              "line": 91,
+              "text": "    <summary>On board NUCLEO-C542RC.</summary>"
+            },
+            {
+              "line": 131,
+              "text": "## __4. Troubleshooting__"
+            },
+            {
+              "line": 142,
+              "text": "## __5. See Also__"
+            },
+            {
+              "line": 159,
+              "text": "## __6. License__"
+            }
+          ]
+        },
+        {
+          "path": "examples/hal/fdcan/two_boards_com_polling_controller",
+          "c542_cmake": "examples/hal/fdcan/two_boards_com_polling_controller/NUCLEO-C542RC/cmake/CMakeLists.txt",
+          "readme": "examples/hal/fdcan/two_boards_com_polling_controller/README.md",
+          "readme_sha256": "c937fb36fcb90c6559818e5f4a2b4598c036b62ebe9d1616f0e97bc67f6d55d2",
+          "headings_and_board_lines": [
+            {
+              "line": 3,
+              "text": "# __Example: *hal_fdcan_two_boards_com_polling_controller*__"
+            },
+            {
+              "line": 12,
+              "text": "## __1. Detailed scenario__"
+            },
+            {
+              "line": 56,
+              "text": "## __2. Example configuration__"
+            },
+            {
+              "line": 69,
+              "text": "## __3. Hardware environment and setup__"
+            },
+            {
+              "line": 71,
+              "text": "### __3.1. Generic Setup__"
+            },
+            {
+              "line": 98,
+              "text": "### __3.2. Specific board setups__"
+            },
+            {
+              "line": 119,
+              "text": "    <summary>On board NUCLEO-C542RC.</summary>"
+            },
+            {
+              "line": 151,
+              "text": "## __4. Troubleshooting__"
+            },
+            {
+              "line": 162,
+              "text": "## __5. See Also__"
+            },
+            {
+              "line": 179,
+              "text": "## __6. License__"
+            }
+          ]
+        },
+        {
+          "path": "examples/hal/fdcan/two_boards_com_polling_responder",
+          "c542_cmake": "examples/hal/fdcan/two_boards_com_polling_responder/NUCLEO-C542RC/cmake/CMakeLists.txt",
+          "readme": "examples/hal/fdcan/two_boards_com_polling_responder/README.md",
+          "readme_sha256": "48666c10554115e9cb7c134ec7ff4248cf458aaa27e7b2e081b6913a001072ae",
+          "headings_and_board_lines": [
+            {
+              "line": 3,
+              "text": "# __Example: *hal_fdcan_two_boards_com_polling_responder*__"
+            },
+            {
+              "line": 12,
+              "text": "## __1. Detailed scenario__"
+            },
+            {
+              "line": 46,
+              "text": "## __2. Example configuration__"
+            },
+            {
+              "line": 59,
+              "text": "## __3. Hardware environment and setup__"
+            },
+            {
+              "line": 61,
+              "text": "### __3.1. Generic Setup__"
+            },
+            {
+              "line": 88,
+              "text": "### __3.2. Specific board setups__"
+            },
+            {
+              "line": 108,
+              "text": "    <summary>On board NUCLEO-C542RC.</summary>"
+            },
+            {
+              "line": 139,
+              "text": "## __4. Troubleshooting__"
+            },
+            {
+              "line": 150,
+              "text": "## __5. See Also__"
+            },
+            {
+              "line": 167,
+              "text": "## __6. License__"
+            }
+          ]
+        }
+      ],
+      "validation": "目录/README核对；本篇未编译或上板"
+    },
+    {
+      "group": "通信",
+      "resource": "USB FS",
+      "purpose": "通过USB栈实现设备类功能",
+      "examples": [
+        "middleware/usbx/device_hid_mouse_no_os"
+      ],
+      "article": "#42",
+      "pitfall": "CN1调试与CN13用户USB分清",
+      "source": [
+        {
+          "path": "examples/middleware/usbx/device_hid_mouse_no_os",
+          "c542_cmake": "examples/middleware/usbx/device_hid_mouse_no_os/NUCLEO-C542RC/cmake/CMakeLists.txt",
+          "readme": "examples/middleware/usbx/device_hid_mouse_no_os/README.md",
+          "readme_sha256": "0a86ac14fea044baf943cc11673bd8067249b793421961da0fa4cb912781d65f",
+          "headings_and_board_lines": [
+            {
+              "line": 3,
+              "text": "# __Example: *usbx_device_hid_mouse_no_os*__"
+            },
+            {
+              "line": 12,
+              "text": "## __1. Detailed scenario__"
+            },
+            {
+              "line": 42,
+              "text": "## __2. Example configuration__"
+            },
+            {
+              "line": 55,
+              "text": "## __3. Hardware environment and setup__"
+            },
+            {
+              "line": 57,
+              "text": "### __3.1. Generic Setup__"
+            },
+            {
+              "line": 62,
+              "text": "### __3.2. Specific board setups__"
+            },
+            {
+              "line": 69,
+              "text": "    <summary>On board NUCLEO-C542RC.</summary>"
+            },
+            {
+              "line": 94,
+              "text": "## __4. Troubleshooting__"
+            },
+            {
+              "line": 107,
+              "text": "## __5. See Also__"
+            },
+            {
+              "line": 120,
+              "text": "## __6. License__"
+            }
+          ]
+        }
+      ],
+      "validation": "目录/README核对；本篇未编译或上板"
+    },
+    {
+      "group": "通信",
+      "resource": "OpenBootloader",
+      "purpose": "通过协议更新用户固件",
+      "examples": [
+        "middleware/open_bootloader/demo"
+      ],
+      "article": "#43",
+      "pitfall": "分区、校验、Go与复位策略分别验证",
+      "source": [
+        {
+          "path": "examples/middleware/open_bootloader/demo",
+          "c542_cmake": "examples/middleware/open_bootloader/demo/NUCLEO-C542RC/cmake/CMakeLists.txt",
+          "readme": "examples/middleware/open_bootloader/demo/README.md",
+          "readme_sha256": "8cc07a4eabad8c7c5f21ce823b9591d3c709146f7564c505097f286184a2a841",
+          "headings_and_board_lines": [
+            {
+              "line": 3,
+              "text": "# __Example: *open_bootloader_demo*__"
+            },
+            {
+              "line": 14,
+              "text": "## __1. Detailed scenario__"
+            },
+            {
+              "line": 43,
+              "text": "## __2. Example configuration__"
+            },
+            {
+              "line": 47,
+              "text": "### __2.1. IPs configuration__"
+            },
+            {
+              "line": 81,
+              "text": "## __3. Hardware environment and setup__"
+            },
+            {
+              "line": 83,
+              "text": "### __3.1. Generic Setup__"
+            },
+            {
+              "line": 103,
+              "text": "### __3.2. Specific board setups__"
+            },
+            {
+              "line": 136,
+              "text": "    <summary>On board NUCLEO-C542RC.</summary>"
+            },
+            {
+              "line": 175,
+              "text": "    <summary>On board NUCLEO-C542RC.</summary>"
+            },
+            {
+              "line": 214,
+              "text": "    <summary>On board NUCLEO-C542RC.</summary>"
+            },
+            {
+              "line": 227,
+              "text": "## __4. Troubleshooting__"
+            },
+            {
+              "line": 232,
+              "text": "## __5. See Also__"
+            },
+            {
+              "line": 243,
+              "text": "## __6. License__"
+            }
+          ]
+        }
+      ],
+      "validation": "目录/README核对；本篇未编译或上板"
+    },
+    {
+      "group": "计算",
+      "resource": "CRC",
+      "purpose": "检查传输或存储的差错",
+      "examples": [
+        "hal/crc/default"
+      ],
+      "article": "#26",
+      "pitfall": "双方多项式、初值、反射和异或值一致",
+      "source": [
+        {
+          "path": "examples/hal/crc/default",
+          "c542_cmake": "examples/hal/crc/default/NUCLEO-C542RC/cmake/CMakeLists.txt",
+          "readme": "examples/hal/crc/default/README.md",
+          "readme_sha256": "04fcdf793ed0d01134aecbf92778ae91a7edecbb0f6bbc6e4987f52d6f2efe8a",
+          "headings_and_board_lines": [
+            {
+              "line": 3,
+              "text": "# __Example: *hal_crc_default*__"
+            },
+            {
+              "line": 13,
+              "text": "## __1. Detailed scenario__"
+            },
+            {
+              "line": 38,
+              "text": "## __2. Example configuration__"
+            },
+            {
+              "line": 53,
+              "text": "## __3. Hardware environment and setup__"
+            },
+            {
+              "line": 55,
+              "text": "### __3.1. Generic Setup__"
+            },
+            {
+              "line": 59,
+              "text": "### __3.2. Specific board setups__"
+            },
+            {
+              "line": 64,
+              "text": "    <summary>On board NUCLEO-C542RC.</summary>"
+            },
+            {
+              "line": 109,
+              "text": "## __4. Troubleshooting__"
+            },
+            {
+              "line": 119,
+              "text": "## __5. See Also__"
+            },
+            {
+              "line": 133,
+              "text": "## __6. License__"
+            }
+          ]
+        }
+      ],
+      "validation": "目录/README核对；本篇未编译或上板"
+    },
+    {
+      "group": "计算",
+      "resource": "RNG",
+      "purpose": "产生随机数据",
+      "examples": [
+        "hal/rng/candidate_nist_config"
+      ],
+      "article": "#26",
+      "pitfall": "检查状态；例程名字不代表配置已生效",
+      "source": [
+        {
+          "path": "examples/hal/rng/candidate_nist_config",
+          "c542_cmake": "examples/hal/rng/candidate_nist_config/NUCLEO-C542RC/cmake/CMakeLists.txt",
+          "readme": "examples/hal/rng/candidate_nist_config/README.md",
+          "readme_sha256": "b9d606bbd4de94c95299b20bf0b70d239875978e94b509aa2255fa39336053c7",
+          "headings_and_board_lines": [
+            {
+              "line": 3,
+              "text": "# __Example: *hal_rng_candidate_nist_config*__"
+            },
+            {
+              "line": 12,
+              "text": "## __1. Detailed scenario__"
+            },
+            {
+              "line": 35,
+              "text": "## __2. Example configuration__"
+            },
+            {
+              "line": 52,
+              "text": "## __3. Hardware environment and setup__"
+            },
+            {
+              "line": 54,
+              "text": "### __3.1. Generic Setup__"
+            },
+            {
+              "line": 58,
+              "text": "### __3.2. Specific board setups__"
+            },
+            {
+              "line": 63,
+              "text": "    <summary>On board NUCLEO-C542RC.</summary>"
+            },
+            {
+              "line": 97,
+              "text": "## __4. Troubleshooting__"
+            },
+            {
+              "line": 108,
+              "text": "## __5. See Also__"
+            },
+            {
+              "line": 123,
+              "text": "## __6. License__"
+            }
+          ]
+        }
+      ],
+      "validation": "目录/README核对；本篇未编译或上板"
+    },
+    {
+      "group": "计算",
+      "resource": "CORDIC",
+      "purpose": "加速三角等数学运算",
+      "examples": [
+        "hal/cordic/sincos_polling"
+      ],
+      "article": "#27",
+      "pitfall": "输入范围、定点格式和参考结果都要核",
+      "source": [
+        {
+          "path": "examples/hal/cordic/sincos_polling",
+          "c542_cmake": "examples/hal/cordic/sincos_polling/NUCLEO-C542RC/cmake/CMakeLists.txt",
+          "readme": "examples/hal/cordic/sincos_polling/README.md",
+          "readme_sha256": "aee3d1ae86c80ff0c7a00206d5d175b9e0656dcf3b5b7a119efcbdd9a1c7f8ac",
+          "headings_and_board_lines": [
+            {
+              "line": 3,
+              "text": "# __Example: *hal_cordic_sincos_polling*__"
+            },
+            {
+              "line": 12,
+              "text": "## __1. Detailed scenario__"
+            },
+            {
+              "line": 31,
+              "text": "## __2. Example configuration__"
+            },
+            {
+              "line": 45,
+              "text": "## __3. Hardware environment and setup__"
+            },
+            {
+              "line": 47,
+              "text": "### __3.1. Generic Setup__"
+            },
+            {
+              "line": 51,
+              "text": "### __3.2. Specific board setups__"
+            },
+            {
+              "line": 58,
+              "text": "    <summary>On board NUCLEO-C542RC.</summary>"
+            },
+            {
+              "line": 89,
+              "text": "## __4. Troubleshooting__"
+            },
+            {
+              "line": 94,
+              "text": "## __5. See Also__"
+            },
+            {
+              "line": 107,
+              "text": "## __6. License__"
+            }
+          ]
+        }
+      ],
+      "validation": "目录/README核对；本篇未编译或上板"
+    },
+    {
+      "group": "计算",
+      "resource": "AES / HASH",
+      "purpose": "加密、摘要与认证相关计算",
+      "examples": [
+        "hal/aes/cipher_gcm",
+        "hal/hash/integrity_sha"
+      ],
+      "article": "#28",
+      "pitfall": "用标准向量校验；密钥管理另有要求",
+      "source": [
+        {
+          "path": "examples/hal/aes/cipher_gcm",
+          "c542_cmake": "examples/hal/aes/cipher_gcm/NUCLEO-C542RC/cmake/CMakeLists.txt",
+          "readme": "examples/hal/aes/cipher_gcm/README.md",
+          "readme_sha256": "f38cfe5983c9c69d5239fa9042c8c5370ce44f0efb2af9a2f2d144c9f42107ef",
+          "headings_and_board_lines": [
+            {
+              "line": 3,
+              "text": "# __Example: *hal_aes_cipher_gcm*__"
+            },
+            {
+              "line": 12,
+              "text": "## __1. Detailed scenario__"
+            },
+            {
+              "line": 45,
+              "text": "## __2. Example configuration__"
+            },
+            {
+              "line": 55,
+              "text": "## __3. Hardware environment and setup__"
+            },
+            {
+              "line": 57,
+              "text": "### __3.1. Generic Setup__"
+            },
+            {
+              "line": 61,
+              "text": "### __3.2. Specific board setups__"
+            },
+            {
+              "line": 66,
+              "text": "    <summary>On board NUCLEO-C542RC.</summary>"
+            },
+            {
+              "line": 100,
+              "text": "## __4. Troubleshooting__"
+            },
+            {
+              "line": 105,
+              "text": "## __5. See Also__"
+            },
+            {
+              "line": 110,
+              "text": "## __6. License__"
+            }
+          ]
+        },
+        {
+          "path": "examples/hal/hash/integrity_sha",
+          "c542_cmake": "examples/hal/hash/integrity_sha/NUCLEO-C542RC/cmake/CMakeLists.txt",
+          "readme": "examples/hal/hash/integrity_sha/README.md",
+          "readme_sha256": "91f69f994e158669daa8affa6df1383e5e592473a20b2b6993a0df66b91319ee",
+          "headings_and_board_lines": [
+            {
+              "line": 3,
+              "text": "# __Example: *hal_hash_integrity_sha*__"
+            },
+            {
+              "line": 12,
+              "text": "## __1. Detailed scenario__"
+            },
+            {
+              "line": 42,
+              "text": "## __2. Example configuration__"
+            },
+            {
+              "line": 61,
+              "text": "## __3. Hardware environment and setup__"
+            },
+            {
+              "line": 63,
+              "text": "### __3.1. Generic Setup__"
+            },
+            {
+              "line": 67,
+              "text": "### __3.2. Specific board setups__"
+            },
+            {
+              "line": 72,
+              "text": "    <summary>On board NUCLEO-C542RC.</summary>"
+            },
+            {
+              "line": 106,
+              "text": "## __4. Troubleshooting__"
+            },
+            {
+              "line": 111,
+              "text": "## __5. See Also__"
+            },
+            {
+              "line": 116,
+              "text": "## __6. License__"
+            }
+          ]
+        }
+      ],
+      "validation": "目录/README核对；本篇未编译或上板"
+    },
+    {
+      "group": "计算",
+      "resource": "软件加密库 / 生命周期",
+      "purpose": "软件算法、硬件调用与保护策略",
+      "examples": [
+        "middleware/stcryptolib/cipher_aes_cbc",
+        "middleware/stfcf/cipher_aes_cbc"
+      ],
+      "article": "#29",
+      "pitfall": "库不是新增外设；保护操作会影响恢复",
+      "source": [
+        {
+          "path": "examples/middleware/stcryptolib/cipher_aes_cbc",
+          "c542_cmake": "examples/middleware/stcryptolib/cipher_aes_cbc/NUCLEO-C542RC/cmake/CMakeLists.txt",
+          "readme": "examples/middleware/stcryptolib/cipher_aes_cbc/README.md",
+          "readme_sha256": "bdc5132b0115a962a0b3727e3e9c2864d4cb56d53cc8cbc0747a72c472bfe253",
+          "headings_and_board_lines": [
+            {
+              "line": 3,
+              "text": "# __Example: *stcryptolib_cipher_aes_cbc*__"
+            },
+            {
+              "line": 23,
+              "text": "## __1. Detailed scenario__"
+            },
+            {
+              "line": 67,
+              "text": "## __2. Example configuration__"
+            },
+            {
+              "line": 72,
+              "text": "## __3. Hardware environment and setup__"
+            },
+            {
+              "line": 74,
+              "text": "### __3.1. Generic Setup__"
+            },
+            {
+              "line": 78,
+              "text": "### __3.2. Specific board setups__"
+            },
+            {
+              "line": 83,
+              "text": "    <summary>On board NUCLEO-C542RC.</summary>"
+            },
+            {
+              "line": 117,
+              "text": "## __4. Troubleshooting__"
+            },
+            {
+              "line": 122,
+              "text": "## __5. See Also__"
+            },
+            {
+              "line": 139,
+              "text": "## __6. License__"
+            }
+          ]
+        },
+        {
+          "path": "examples/middleware/stfcf/cipher_aes_cbc",
+          "c542_cmake": "examples/middleware/stfcf/cipher_aes_cbc/NUCLEO-C542RC/cmake/CMakeLists.txt",
+          "readme": "examples/middleware/stfcf/cipher_aes_cbc/README.md",
+          "readme_sha256": "5d2c57c49e338354cbe9825fdb6766fce2660d1adc898b8aa420a0f9e551f3cf",
+          "headings_and_board_lines": [
+            {
+              "line": 3,
+              "text": "# __Example: *stfcf_cipher_aes_cbc*__"
+            },
+            {
+              "line": 25,
+              "text": "## __1. Detailed scenario__"
+            },
+            {
+              "line": 67,
+              "text": "## __2. Example configuration__"
+            },
+            {
+              "line": 80,
+              "text": "## __3. Hardware environment and setup__"
+            },
+            {
+              "line": 82,
+              "text": "### __3.1. Generic Setup__"
+            },
+            {
+              "line": 86,
+              "text": "### __3.2. Specific board setups__"
+            },
+            {
+              "line": 94,
+              "text": "    <summary>On board NUCLEO-C542RC.</summary>"
+            },
+            {
+              "line": 128,
+              "text": "## __4. Troubleshooting__"
+            },
+            {
+              "line": 133,
+              "text": "## __5. See Also__"
+            },
+            {
+              "line": 140,
+              "text": "## __6. License__"
+            }
+          ]
+        }
+      ],
+      "validation": "目录/README核对；本篇未编译或上板"
+    },
+    {
+      "group": "分支",
+      "resource": "USART同步 / I²S",
+      "purpose": "带时钟串行或音频串行传输",
+      "examples": [
+        "hal/usart/two_boards_com_polling_controller",
+        "hal/i2s/transmit_com_dma_controller"
+      ],
+      "article": "后续分支",
+      "pitfall": "外设模式复用不等于引脚能同时使用",
+      "source": [
+        {
+          "path": "examples/hal/usart/two_boards_com_polling_controller",
+          "c542_cmake": "examples/hal/usart/two_boards_com_polling_controller/NUCLEO-C542RC/cmake/CMakeLists.txt",
+          "readme": "examples/hal/usart/two_boards_com_polling_controller/README.md",
+          "readme_sha256": "cea2093800a4dfe839f5ac38a912c850a4407f833ea42767925497bab1f50d63",
+          "headings_and_board_lines": [
+            {
+              "line": 3,
+              "text": "# __Example: *hal_usart_two_boards_com_polling_controller*__"
+            },
+            {
+              "line": 14,
+              "text": "## __1. Detailed scenario__"
+            },
+            {
+              "line": 47,
+              "text": "## __2. Example configuration__"
+            },
+            {
+              "line": 69,
+              "text": "## __3. Hardware environment and setup__"
+            },
+            {
+              "line": 71,
+              "text": "### __3.1. Generic Setup__"
+            },
+            {
+              "line": 107,
+              "text": "### __3.2. Specific board setups__"
+            },
+            {
+              "line": 115,
+              "text": "    <summary>On board NUCLEO-C542RC.</summary>"
+            },
+            {
+              "line": 155,
+              "text": "## __4. Troubleshooting__"
+            },
+            {
+              "line": 167,
+              "text": "## __5. See Also__"
+            },
+            {
+              "line": 182,
+              "text": "## __6. License__"
+            }
+          ]
+        },
+        {
+          "path": "examples/hal/i2s/transmit_com_dma_controller",
+          "c542_cmake": "examples/hal/i2s/transmit_com_dma_controller/NUCLEO-C542RC/cmake/CMakeLists.txt",
+          "readme": "examples/hal/i2s/transmit_com_dma_controller/README.md",
+          "readme_sha256": "6ef51318bc90ed8f4c2a876f98051f3e51d34d37a09685b2973d715bdb239f05",
+          "headings_and_board_lines": [
+            {
+              "line": 3,
+              "text": "# __Example: *hal_i2s_transmit_com_dma_controller*__"
+            },
+            {
+              "line": 12,
+              "text": "## __1. Detailed scenario__"
+            },
+            {
+              "line": 34,
+              "text": "## __2. Example configuration__"
+            },
+            {
+              "line": 45,
+              "text": "## __3. Hardware environment and setup__"
+            },
+            {
+              "line": 47,
+              "text": "### __3.1. Generic Setup__"
+            },
+            {
+              "line": 78,
+              "text": "### __3.2. Specific board setups__"
+            },
+            {
+              "line": 85,
+              "text": "    <summary>On board NUCLEO-C542RC.</summary>"
+            },
+            {
+              "line": 125,
+              "text": "## __4. Troubleshooting__"
+            },
+            {
+              "line": 136,
+              "text": "## __5. See Also__"
+            },
+            {
+              "line": 147,
+              "text": "## __6. License__"
+            }
+          ]
+        }
+      ],
+      "validation": "目录/README核对；本篇未编译或上板"
+    },
+    {
+      "group": "分支",
+      "resource": "SMBus / SmartCard",
+      "purpose": "有特定约束的总线或卡接口",
+      "examples": [
+        "hal/smbus/two_boards_com_it_controller",
+        "hal/smartcard/com_dma"
+      ],
+      "article": "后续分支",
+      "pitfall": "需匹配对端、扩展板与协议条件",
+      "source": [
+        {
+          "path": "examples/hal/smbus/two_boards_com_it_controller",
+          "c542_cmake": "examples/hal/smbus/two_boards_com_it_controller/NUCLEO-C542RC/cmake/CMakeLists.txt",
+          "readme": "examples/hal/smbus/two_boards_com_it_controller/README.md",
+          "readme_sha256": "9eb321eb0bd7a9f565cd62322ab00ecfbc9e1ce5724705368248a29e6497862e",
+          "headings_and_board_lines": [
+            {
+              "line": 3,
+              "text": "# __Example: *hal_smbus_two_boards_com_it_controller*__"
+            },
+            {
+              "line": 14,
+              "text": "## __1. Detailed scenario__"
+            },
+            {
+              "line": 55,
+              "text": "## __2. Example configuration__"
+            },
+            {
+              "line": 80,
+              "text": "## __3. Hardware environment and setup__"
+            },
+            {
+              "line": 82,
+              "text": "### __3.1. Generic Setup__"
+            },
+            {
+              "line": 128,
+              "text": "### __3.2. Specific board setups__"
+            },
+            {
+              "line": 138,
+              "text": "    <summary>On board NUCLEO-C542RC.</summary>"
+            },
+            {
+              "line": 181,
+              "text": "## __4. Troubleshooting__"
+            },
+            {
+              "line": 198,
+              "text": "## __5. See Also__"
+            },
+            {
+              "line": 215,
+              "text": "## __6. License__"
+            }
+          ]
+        },
+        {
+          "path": "examples/hal/smartcard/com_dma",
+          "c542_cmake": "examples/hal/smartcard/com_dma/NUCLEO-C542RC/cmake/CMakeLists.txt",
+          "readme": "examples/hal/smartcard/com_dma/README.md",
+          "readme_sha256": "22a5d75a167093be1a588e63d176c14e118a406dfee79fb5bea341ef0e8274a3",
+          "headings_and_board_lines": [
+            {
+              "line": 3,
+              "text": "# __Example: *hal_smartcard_com_dma*__"
+            },
+            {
+              "line": 15,
+              "text": "## __1. Detailed scenario__"
+            },
+            {
+              "line": 56,
+              "text": "## __2. Example configuration__"
+            },
+            {
+              "line": 86,
+              "text": "## __3. Hardware environment and setup__"
+            },
+            {
+              "line": 88,
+              "text": "### __3.1. Generic Setup__"
+            },
+            {
+              "line": 130,
+              "text": "### __3.2. Specific board setups__"
+            },
+            {
+              "line": 137,
+              "text": "    <summary>On board NUCLEO-C542RC.</summary>"
+            },
+            {
+              "line": 192,
+              "text": "## __4. Troubleshooting__"
+            },
+            {
+              "line": 207,
+              "text": "## __5. See Also__"
+            },
+            {
+              "line": 220,
+              "text": "## __6. License__"
+            }
+          ]
+        }
+      ],
+      "validation": "目录/README核对；本篇未编译或上板"
+    },
+    {
+      "group": "分支",
+      "resource": "电机类TIM模式",
+      "purpose": "互补输出、死区与刹车",
+      "examples": [
+        "hal/tim/deadtime_insertion"
+      ],
+      "article": "后续分支",
+      "pitfall": "定时器演示不代表电机控制系统可上电",
+      "source": [
+        {
+          "path": "examples/hal/tim/deadtime_insertion",
+          "c542_cmake": "examples/hal/tim/deadtime_insertion/NUCLEO-C542RC/cmake/CMakeLists.txt",
+          "readme": "examples/hal/tim/deadtime_insertion/README.md",
+          "readme_sha256": "634b85ec8ef3257d902cad5265c3300cb19e83f87533c43a4c5f5efdc5fa1065",
+          "headings_and_board_lines": [
+            {
+              "line": 3,
+              "text": "# __Example: *hal_tim_deadtime_insertion*__"
+            },
+            {
+              "line": 12,
+              "text": "## __1. Detailed scenario__"
+            },
+            {
+              "line": 29,
+              "text": "## __2. Example configuration__"
+            },
+            {
+              "line": 33,
+              "text": "### __2.1. Timer configuration__"
+            },
+            {
+              "line": 82,
+              "text": "### __2.2. GPIO configuration__"
+            },
+            {
+              "line": 92,
+              "text": "## __3. Hardware environment and setup__"
+            },
+            {
+              "line": 94,
+              "text": "### __3.1. Generic Setup__"
+            },
+            {
+              "line": 98,
+              "text": "### __3.2. Specific board setups__"
+            },
+            {
+              "line": 193,
+              "text": "    <summary>On board NUCLEO-C542RC.</summary>"
+            },
+            {
+              "line": 235,
+              "text": "## __4. Troubleshooting__"
+            },
+            {
+              "line": 244,
+              "text": "## __5. See Also__"
+            },
+            {
+              "line": 264,
+              "text": "## __6. License__"
+            }
+          ]
+        }
+      ],
+      "validation": "目录/README核对；本篇未编译或上板"
+    }
+  ]
+}

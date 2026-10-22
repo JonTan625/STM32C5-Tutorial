@@ -1,0 +1,8 @@
+[
+  {
+    "official_path": "application/example.c",
+    "package_path": "example.c",
+    "diff": "example_c_改动.diff",
+    "sha256": "701c3f1d3e7803c5bc27307a67b71264e8d96420e3adb7c541c75d10aad44208"
+  }
+]

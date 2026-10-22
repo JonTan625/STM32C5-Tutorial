@@ -1,0 +1,47 @@
+--- official/examples/ll/adc/multi_channels_dma/application/ll_example.h
++++ c5_33/examples/ll/adc/multi_channels_dma/application/ll_example.h
+@@ -25,12 +25,21 @@
+ /* Exported types ------------------------------------------------------------*/
+ /* Exported constants --------------------------------------------------------*/
+ #ifndef USE_LL_APP_TIMEOUT
+-#define USE_LL_APP_TIMEOUT 0U
++#define USE_LL_APP_TIMEOUT 1U
+ #endif /* USE_LL_APP_TIMEOUT */
+ 
+ #ifndef USE_LL_APP_ERROR
+ #define USE_LL_APP_ERROR 0U
+ #endif /* USE_LL_APP_ERROR */
++
++/* C5 #33 改写：每次定时触发扫描3个通道，收集 ADC_SCANS 轮，一次 DMA 传完 */
++#define ADC_RANKS       3U                        /* 序列长度：[0] PA4，[1] VrefInt，[2] 温度传感器 */
++#define ADC_SCANS       16U                       /* 每次启动读几轮 */
++#define ADC_BUFFER_SIZE (ADC_RANKS * ADC_SCANS)   /* 缓冲区半字数 48，DMA 块长度 96 字节 */
++#define ADC_SENTINEL    0xFFFFU                   /* 12 位右对齐的数据不会出现的值，表示这个槽还没被 DMA 写过 */
++
++/* DMA 写、CPU 读，所以是 volatile；下标 = 轮数 × ADC_RANKS + 位次 */
++extern volatile uint16_t ADCRawData[ADC_BUFFER_SIZE];
+ 
+ /* Exported macros -----------------------------------------------------------*/
+ /* Exported functions ------------------------------------------------------- */
+@@ -51,21 +60,6 @@
+   */
+ void ADC_StartConversion_DMA(void);
+ 
+-/** brief:  Get the MX_ADCx GPIO data in mV.
+-  * retval: data value in mV
+-  */
+-uint16_t ADC_GetDataGPIOmV(void);
+-
+-/** brief:  Get the MX_ADCx VrefInt data in mV.
+-  * retval: data value in mV
+-  */
+-uint16_t ADC_GetDataVrefIntmV(void);
+-
+-/** brief:  Get the MX_ADCx temperature sensor data in DegC.
+-  * retval: data value in DegC
+-  */
+-uint16_t ADC_GetDataTemperatureDegC(void);
+-
+ /** brief:  MX_ADCx conversion complete callback.
+   */
+ void ADC_ConversionCompleteCallback(void);

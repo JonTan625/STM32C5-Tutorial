@@ -1,0 +1,349 @@
+{
+  "date": "2026-10-21",
+  "version": "教学参考v1",
+  "status": "方案/契约；尚未实现、未编译、未实板验收",
+  "basis": "05 学习计划第六节项目三 + 作者 2026-10-21 选定的参考方向；具体数值为教学约定",
+  "target": "NUCLEO-C542RC / STM32C542RC",
+  "parameters": {
+    "period_s_default": 60,
+    "period_s_min": 10,
+    "period_s_max": 60,
+    "iwdg_ms": 120000,
+    "iwdg_PR": 8,
+    "iwdg_RLR": 3749,
+    "iwdg_divider": 1024,
+    "iwdg_timeout_s_at_lsi_hz": {
+      "32000": 120.0,
+      "33600": 114.3,
+      "28600": 134.3
+    },
+    "wake_clock": "HSIDIV3 48 MHz（STOPWUCK=0 复位默认）",
+    "console_clock": "HSE 24 MHz → PSIS 144 MHz（同官方生成代码）",
+    "adc_kernel": "HCLK 48 MHz ÷ 4 = 12 MHz",
+    "adc_sampling_cycles": 288.5,
+    "adc_sampling_us": 24.0,
+    "temp_sampling_min_us": 13,
+    "temp_buffer_start_max_us": 25.2,
+    "adc_ldo_start_max_us": 10,
+    "adc_cal_cycles": 85,
+    "console_wake_pin": "PA3（USART2_RX）下降沿，EXTI3",
+    "console_idle_s": 60,
+    "uart": "115200 8N1",
+    "log_first_page": 16,
+    "log_pages": 16,
+    "log_addr": "0x08020000～0x0803FFFF",
+    "page_bytes": 8192,
+    "record_bytes": 16,
+    "slots_per_page": 512,
+    "ring_min_records": 7680,
+    "program_rom": "0x08000000～0x0801FFFF（bank 1，128 KB）",
+    "backup_regs": {
+      "BKP1R": "已校时标记（同 #46）",
+      "BKP2R": "周期（高 16 位 magic 0xC547，低 16 位秒数）"
+    },
+    "lse_drive": "HIGH（勘误 2.2.3 禁用 LOW；与官方 rtc/timestamp 生成代码相同，#20 上过板）",
+    "calendar_read": "BYPSHAD=1，连读两次一致才用（勘误 2.7.2）"
+  },
+  "power_budget": {
+    "stop1_typ_mA": {
+      "flash_lp": 0.04,
+      "flash_on": 0.06
+    },
+    "stop1_max_30C_mA": 0.12,
+    "run_48MHz_typ_mA": 3.7,
+    "awake_ms_budget": 1.0,
+    "avg_mA": {
+      "10": 0.04037,
+      "60": 0.04006
+    },
+    "awake_share_uA": {
+      "10": 0.366,
+      "60": 0.061
+    },
+    "standby_rtc_typ_uA": 3.25,
+    "note": "只算 MCU 典型值；板上 ST-LINK、LED、稳压器不在内；实测为 C 级（需电流表，JP5）"
+  },
+  "storage_format": {
+    "word0": "0xC547 << 16 | CRC-16/CCITT-FALSE(字1～3 的 12 字节，小端内存顺序)",
+    "word1": "uint32 序号，单调加 1，跨页连续",
+    "word2": "2000-01-01 00:00:00 起的秒数；0xFFFFFFFF = 时间无效",
+    "word3": "bit11:0 温度原始码；bit23:12 VREFINT 原始码；bit24 时间有效；bit25 命令模式中记录；bit26 ADC 错误",
+    "crc": "CRC-16/CCITT-FALSE：poly 0x1021，init 0xFFFF，不反射，xorout 0",
+    "crc_check_123456789": "0x29b1",
+    "ring": "bank 2 共 16 页；写满当前页后先擦下一页（最旧）再写；上电扫描取序号最大的有效记录续写",
+    "days_kept_at_period_s": {
+      "10": 0.89,
+      "60": 5.33
+    },
+    "erase_interval_days": {
+      "10": 0.95,
+      "60": 5.69
+    },
+    "endurance_years_at_10k": {
+      "10": 26.0,
+      "60": 156.0
+    }
+  },
+  "features": [
+    {
+      "id": "F01",
+      "name": "记录循环",
+      "trigger": "上电初始化完成；RTC 唤醒定时器到期",
+      "state_condition": "记录模式",
+      "behavior": "醒来→喂狗→采样→写一条记录→回 Stop1；不追补漏掉的周期",
+      "exit": "命令模式中照常按周期记录",
+      "hardware": "RTC WUT（ck_spre 1 Hz）、EXTI17、Stop1",
+      "verification": "R47-01、02、03"
+    },
+    {
+      "id": "F02",
+      "name": "采样",
+      "trigger": "每次记录唤醒",
+      "state_condition": "记录或命令模式",
+      "behavior": "ADC 退出深度掉电→稳压器≥10 µs→校准→温度与 VREFINT 各一次→回深度掉电",
+      "exit": "ADC 超时 1 ms 记 ADC 错误标志，仍写记录",
+      "hardware": "ADC1 内部通道 ch12 温度、ch13 VREFINT；HCLK÷4=12 MHz",
+      "verification": "R47-04、14"
+    },
+    {
+      "id": "F03",
+      "name": "记录与环形存储",
+      "trigger": "每条样本",
+      "state_condition": "任意模式",
+      "behavior": "16 字节记录追加；页满先擦下一页再写；读回比较",
+      "exit": "擦写失败计数，跳过该槽，不停机",
+      "hardware": "bank 2 页 16～31；程序只在 bank 1（读写并行）",
+      "verification": "R47-07、08、10"
+    },
+    {
+      "id": "F04",
+      "name": "时间",
+      "trigger": "TIME 命令；每条记录取时间",
+      "state_condition": "命令模式才可校时",
+      "behavior": "BYPSHAD=1 连读两次一致；未校时记 0xFFFFFFFF 并清时间有效位",
+      "exit": "B2/IWDG 复位保留；冷启动 UNSET",
+      "hardware": "RTC+LSE（驱动 HIGH）、TAMP_BKP1R",
+      "verification": "R47-09、11"
+    },
+    {
+      "id": "F05",
+      "name": "串口唤醒与命令模式",
+      "trigger": "电脑发任意字符（PA3 下降沿）",
+      "state_condition": "记录模式",
+      "behavior": "恢复 144 MHz，重配 USART2，回 READY；首字节丢弃",
+      "exit": "60 s 无命令自动回记录模式",
+      "hardware": "PA3 EXTI3 与 USART2 AF7 分时复用",
+      "verification": "R47-05、06"
+    },
+    {
+      "id": "F06",
+      "name": "导出",
+      "trigger": "DUMP [n]",
+      "state_condition": "命令模式",
+      "behavior": "按序号从旧到新输出 CSV：序号、时间、温度×10、VDDA mV、标志；发送环满就等，不丢行",
+      "exit": "导出期间照常喂狗、照常记录",
+      "hardware": "USART2 TX 环 512 字节",
+      "verification": "R47-07"
+    },
+    {
+      "id": "F07",
+      "name": "参数与清除",
+      "trigger": "PERIOD s；CLEAR YES",
+      "state_condition": "命令模式",
+      "behavior": "PERIOD 10～60 写 BKP2R；CLEAR 需带 YES，擦 16 页",
+      "exit": "越界 ERR RANGE；无 YES 回 ERR CONFIRM",
+      "hardware": "TAMP_BKP2R；Flash 页擦除",
+      "verification": "R47-12"
+    },
+    {
+      "id": "F08",
+      "name": "看门狗",
+      "trigger": "初始化完成后",
+      "state_condition": "所有模式",
+      "behavior": "IWDG 120 s；每次唤醒与命令循环喂狗；不改选项字",
+      "exit": "卡死 114～134 s 内复位并在 BOOT 行报 IWDG",
+      "hardware": "IWDG/LSI；选项字 IWDG_STOP=1（Stop 中照样计数）",
+      "verification": "R47-13"
+    },
+    {
+      "id": "F09",
+      "name": "低功耗",
+      "trigger": "每次回睡前",
+      "state_condition": "记录模式",
+      "behavior": "ADC 深度掉电、LED 灭、USART2 关、PA3 改 EXTI 输入；进 Stop1",
+      "exit": "电流按 DS 预算；实测为 C 级",
+      "hardware": "PWR Stop1；DBGMCU 低功耗调试位需断电清除",
+      "verification": "R47-03、15"
+    },
+    {
+      "id": "F10",
+      "name": "复现与交付",
+      "trigger": "#48 完成实现",
+      "state_condition": "—",
+      "behavior": "同项目二：源码差异、工具版本、构建日志、产物身份、执行记录、已知限制",
+      "exit": "会擦 bank 2 全部 16 页（覆盖 #22/#25/#43/#46 的数据），首次使用前备份",
+      "hardware": "独立工程，自 0x08000000 启动",
+      "verification": "R47-16"
+    }
+  ],
+  "tests": [
+    {
+      "id": "R47-01",
+      "features": "F01、F10",
+      "name": "首次启动",
+      "operation": "空日志板上电",
+      "pass_criteria": "BOOT 行 used=0、period=60、time=UNSET；随后进入 Stop1",
+      "category": "正常/启动",
+      "status": "待#48实现后执行"
+    },
+    {
+      "id": "R47-02",
+      "features": "F01",
+      "name": "记录周期",
+      "operation": "PERIOD 10，运行 10 分钟",
+      "pass_criteria": "新增 60±1 条；序号连续；相邻时间差 10 s（校时后）",
+      "category": "时序",
+      "status": "待#48实现后执行"
+    },
+    {
+      "id": "R47-03",
+      "features": "F01、F09",
+      "name": "确认进入 Stop1",
+      "operation": "记录模式下附着调试器；读 PWR 标志",
+      "pass_criteria": "睡眠时调试器连不上（#23 现象）；醒后 STOPF 置位",
+      "category": "状态",
+      "status": "待#48实现后执行"
+    },
+    {
+      "id": "R47-04",
+      "features": "F02",
+      "name": "唤醒到回睡耗时",
+      "operation": "读 DWT 记的 g_awake_us",
+      "pass_criteria": "典型 ≤ 1 ms（预算）；页擦除那次另记",
+      "category": "时序/预算",
+      "status": "待#48实现后执行"
+    },
+    {
+      "id": "R47-05",
+      "features": "F05",
+      "name": "串口唤醒",
+      "operation": "终端发回车",
+      "pass_criteria": "≤ 100 ms 内回 READY；首字节丢弃按约定",
+      "category": "接口",
+      "status": "待#48实现后执行"
+    },
+    {
+      "id": "R47-06",
+      "features": "F05、F01",
+      "name": "命令模式超时与记录不断",
+      "operation": "进命令模式后不操作 3 分钟",
+      "pass_criteria": "60 s 后自动回记录模式；期间记录照常、序号连续",
+      "category": "恢复",
+      "status": "待#48实现后执行"
+    },
+    {
+      "id": "R47-07",
+      "features": "F06、F03",
+      "name": "导出",
+      "operation": "DUMP 全部",
+      "pass_criteria": "行数等于有效记录数；CRC 全过；CSV 可导入表格",
+      "category": "正常/接口",
+      "status": "待#48实现后执行"
+    },
+    {
+      "id": "R47-08",
+      "features": "F03",
+      "name": "环形覆盖",
+      "operation": "测试变体：2 页日志、周期 1 s，运行 20 分钟",
+      "pass_criteria": "写满 2 页后擦最旧页继续；序号不重、不倒退",
+      "category": "容量/变体",
+      "status": "待#48实现后执行"
+    },
+    {
+      "id": "R47-09",
+      "features": "F03、F04",
+      "name": "断电续写",
+      "operation": "记录若干条后拔插 USB",
+      "pass_criteria": "续写序号接上次最大值；时间无效位清零",
+      "category": "掉电/恢复",
+      "status": "待#48实现后执行"
+    },
+    {
+      "id": "R47-10",
+      "features": "F03",
+      "name": "坏记录",
+      "operation": "测试变体构造 CRC 错的记录",
+      "pass_criteria": "扫描跳过并计数；不影响续写位置判断",
+      "category": "错误",
+      "status": "待#48实现后执行"
+    },
+    {
+      "id": "R47-11",
+      "features": "F04",
+      "name": "校时与复位",
+      "operation": "TIME 后按 B2，再拔插 USB",
+      "pass_criteria": "B2 后时间保留；冷启动 UNSET；非法日期 ERR RANGE",
+      "category": "日期/恢复",
+      "status": "待#48实现后执行"
+    },
+    {
+      "id": "R47-12",
+      "features": "F07",
+      "name": "参数与清除",
+      "operation": "PERIOD 9、61、10；CLEAR、CLEAR YES",
+      "pass_criteria": "越界 ERR RANGE；CLEAR 无 YES 回 ERR CONFIRM；CLEAR YES 后 used=0",
+      "category": "边界",
+      "status": "待#48实现后执行"
+    },
+    {
+      "id": "R47-13",
+      "features": "F08",
+      "name": "看门狗",
+      "operation": "测试变体 T HANG；正式版连续运行 1 小时",
+      "pass_criteria": "T HANG 后 114～134 s 复位、BOOT 报 IWDG；正常运行无 IWDG 复位",
+      "category": "故障",
+      "status": "待#48实现后执行"
+    },
+    {
+      "id": "R47-14",
+      "features": "F02",
+      "name": "温度合理性",
+      "operation": "室温读数；手捂芯片",
+      "pass_criteria": "与室温同量级；手捂时上升（不评精度）",
+      "category": "实物/定性",
+      "status": "待#48实现后执行"
+    },
+    {
+      "id": "R47-15",
+      "features": "F09",
+      "name": "电流（C 级）",
+      "operation": "拔 JP5 串电流表，先断电清调试位",
+      "pass_criteria": "记录模式平均电流与 Stop1 段电流；与预算比较并说明板级差异",
+      "category": "仪器",
+      "status": "待#48实现后执行"
+    },
+    {
+      "id": "R47-16",
+      "features": "F10",
+      "name": "完整回归",
+      "operation": "Debug/Release 各连续运行 ≥ 2 小时",
+      "pass_criteria": "记录数与时长吻合；复位 0 次；map 与栈有依据",
+      "category": "交付",
+      "status": "待#48实现后执行"
+    }
+  ],
+  "errata_applied": {
+    "2.2.2": "PC13 跳变干扰 LSE（LQFP）→ 命令模式不用 B1 唤醒",
+    "2.2.3": "LSE 低驱动不可用 → HIGH",
+    "2.7.2": "影子寄存器读日历偶发错值 → BYPSHAD=1 连读两次",
+    "2.7.3": "写保护时写 RTC_SCR 会卡死 → 全程保持 RTC 域可写"
+  },
+  "not_in_scope": [
+    "电流实测（C 级）",
+    "温度绝对精度",
+    "写入瞬间掉电原子性",
+    "Standby 与无 RAM 恢复",
+    "无线/上位机软件",
+    "改选项字"
+  ]
+}

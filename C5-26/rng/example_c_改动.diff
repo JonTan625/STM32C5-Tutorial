@@ -1,0 +1,161 @@
+--- official/rng/candidate_nist_config/application/example.c
++++ c5_26/rng/candidate_nist_config/application/example.c
+@@ -13,6 +13,13 @@
+   *
+   ******************************************************************************
+   */
++/* C5 #26 改写（RNG）：
++ * 1. 先读复位后的 RNG_CR：C542RC 的生成代码没有调用任何配置函数，官方例程用的就是这个默认配置；
++ * 2. 默认配置下取 8 个数，再取 1024 个字，量耗时、数 1 的个数、数 0 值字；
++ * 3. 调用 HAL_RNG_SetCandidateNISTConfig()，读回 CR、NSCR、HTCR0，再测一遍；
++ * 4. 种子错误恢复后重新生成（官方例程恢复后直接打印未填满的数组）；HAL 报时钟错误时也不用这批数。
++ * 结果经 USART2（ST-LINK 虚拟串口，115200 8N1）打印，需 flags.cmake 中 USE_TRACE=1。
++ */
+ 
+ /* Includes ------------------------------------------------------------------*/
+ #include "example.h"
+@@ -21,6 +28,8 @@
+ /* Private define ------------------------------------------------------------*/
+ #define RNG_NUMBERS   8U      /* Number of 32-bit random numbers that will be generated */
+ #define RNG_GENERATION_TIMEOUT   10U            /* Timeout for generation in millisecond */
++#define BENCH_WORDS   1024U   /* 32768 位 */
++#define BENCH_TIMEOUT 500U    /* ms：按 RM §26.5 推算，配置 C 下 1024 个字约 87 ms */
+ 
+ /* Private macro -------------------------------------------------------------*/
+ 
+@@ -28,7 +37,20 @@
+ hal_rng_handle_t *pRNG;  /* pointer referencing the RNG handle from the generated code */
+ uint32_t RandomNumbers[RNG_NUMBERS] = {0}; /* array to store the generated random numbers */
+ 
++/* C5 #26：以下变量放进 Watch，也会打印到串口；下标 0 = 复位默认配置，1 = SetCandidateNISTConfig 之后 */
++uint32_t g_rng_cr[2];
++uint32_t g_rng_nscr[2];
++uint32_t g_rng_htcr0[2];
++uint32_t g_bench_cycles[2];   /* 生成 1024 个字用的 HCLK 周期 */
++uint32_t g_bench_ones[2];     /* 32768 位里 1 的个数，期望 16384 附近 */
++uint32_t g_bench_zero[2];     /* 等于 0 的字：RM 说 0 表示读到了无效数据 */
++uint32_t g_seed_recover;      /* 种子错误恢复次数 */
++uint32_t g_clock_error;       /* HAL 报时钟错误的次数 */
++static uint32_t BenchWords[BENCH_WORDS];
++
+ /* Private functions prototype -----------------------------------------------*/
++static app_status_t generate(uint32_t *p_data, uint32_t size_word, uint32_t timeout_ms);
++static app_status_t run_config(uint32_t idx);
+ 
+ /** ########## Step 1 ##########
+   * The init of the RNG instance is triggered by the applicative code.
+@@ -41,6 +63,9 @@
+ 
+   if (pRNG != NULL)
+   {
++    DCB->DEMCR |= DCB_DEMCR_TRCENA_Msk;  /* DWT 周期计数器，用来量生成耗时（#14） */
++    DWT->CYCCNT = 0U;
++    DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
+     PRINTF("[INFO] Step 1: Device initialization COMPLETED.\n");
+     return_status = EXEC_STATUS_INIT_OK;
+   }
+@@ -50,26 +75,20 @@
+ 
+ 
+ /** ########## Step 2 ##########
+-  * Generates random numbers and stores them in RandomNumbers[].
++  * C5 #26：默认配置测一遍，换成 HAL 的 candidate NIST 配置再测一遍。
+   */
+ app_status_t app_process(void)
+ {
+-  if (HAL_RNG_GenerateRandomNumber(pRNG, RandomNumbers, RNG_NUMBERS, RNG_GENERATION_TIMEOUT) != HAL_OK)
++  if (run_config(0U) != EXEC_STATUS_OK)
+   {
+-    if (HAL_RNG_GetLastErrorCodes(pRNG) != HAL_RNG_ERROR_SEED)
+-    {
+-      return EXEC_STATUS_ERROR;
+-    }
+-    if (HAL_RNG_RecoverSeedError(pRNG) != HAL_OK)
+-    {
+-      return EXEC_STATUS_ERROR;
+-    }
++    return EXEC_STATUS_ERROR;
+   }
+-  for (uint32_t i = 0; i < RNG_NUMBERS; i++)
++  if (HAL_RNG_SetCandidateNISTConfig(pRNG) != HAL_OK)
+   {
+-    PRINTF("[INFO] Step 2:%" PRId32 " - Generate 32-bit random number: 0x%" PRIx32 ".\n", i + 1, RandomNumbers[i]);
++    PRINTF("[ERROR] HAL_RNG_SetCandidateNISTConfig failed\n");
++    return EXEC_STATUS_ERROR;
+   }
+-  return EXEC_STATUS_OK;
++  return run_config(1U);
+ } /* end app_process */
+ 
+ 
+@@ -83,3 +102,70 @@
+ 
+   return EXEC_STATUS_OK;
+ } /* end app_deinit */
++
++/** 读配置寄存器 → 取 8 个数打印 → 取 1024 个字量耗时并做最简单的计数检查 */
++static app_status_t run_config(uint32_t idx)
++{
++  uint32_t t0;
++  uint32_t i;
++
++  g_rng_cr[idx]    = RNG->CR;
++  g_rng_nscr[idx]  = RNG->NSCR;
++  g_rng_htcr0[idx] = RNG->HTCR[0];
++  PRINTF("[C5#26] %s: RNG_CR=0x%08" PRIX32 " NSCR=0x%03" PRIX32 " HTCR0=0x%08" PRIX32 "\n",
++         (idx == 0U) ? "reset default" : "candidate NIST", g_rng_cr[idx], g_rng_nscr[idx], g_rng_htcr0[idx]);
++
++  if (generate(RandomNumbers, RNG_NUMBERS, RNG_GENERATION_TIMEOUT) != EXEC_STATUS_OK)
++  {
++    return EXEC_STATUS_ERROR;
++  }
++  for (i = 0U; i < RNG_NUMBERS; i++)
++  {
++    PRINTF("[INFO] Step 2:%" PRId32 " - Generate 32-bit random number: 0x%08" PRIX32 ".\n", i + 1U, RandomNumbers[i]);
++  }
++
++  t0 = DWT->CYCCNT;
++  if (generate(BenchWords, BENCH_WORDS, BENCH_TIMEOUT) != EXEC_STATUS_OK)
++  {
++    return EXEC_STATUS_ERROR;
++  }
++  g_bench_cycles[idx] = DWT->CYCCNT - t0;
++  for (i = 0U; i < BENCH_WORDS; i++)
++  {
++    g_bench_ones[idx] += (uint32_t)__builtin_popcount(BenchWords[i]);
++    g_bench_zero[idx] += (BenchWords[i] == 0U) ? 1U : 0U;
++  }
++  PRINTF("[C5#26] 1024 words in %" PRIu32 " us, ones=%" PRIu32 " (of 32768), zero words=%" PRIu32
++         ", seed recover=%" PRIu32 ", clock error=%" PRIu32 "\n",
++         g_bench_cycles[idx] / (SystemCoreClock / 1000000U), g_bench_ones[idx], g_bench_zero[idx],
++         g_seed_recover, g_clock_error);
++  return EXEC_STATUS_OK;
++}
++
++/** 生成随机数：种子错误先恢复再重新生成一次；HAL 报了时钟错误的这批数不用（RM §26.3.7） */
++static app_status_t generate(uint32_t *p_data, uint32_t size_word, uint32_t timeout_ms)
++{
++  for (uint32_t attempt = 0U; attempt < 2U; attempt++)
++  {
++    if (HAL_RNG_GenerateRandomNumber(pRNG, p_data, size_word, timeout_ms) == HAL_OK)
++    {
++      if ((HAL_RNG_GetLastErrorCodes(pRNG) & HAL_RNG_ERROR_CLOCK) == 0U)
++      {
++        return EXEC_STATUS_OK;
++      }
++      g_clock_error++;   /* HAL 遇到时钟错误只清标志、照样返回 HAL_OK */
++      continue;
++    }
++    if ((HAL_RNG_GetLastErrorCodes(pRNG) & HAL_RNG_ERROR_SEED) == 0U)
++    {
++      return EXEC_STATUS_ERROR;   /* 超时等其他错误 */
++    }
++    if (HAL_RNG_RecoverSeedError(pRNG) != HAL_OK)
++    {
++      return EXEC_STATUS_ERROR;
++    }
++    g_seed_recover++;
++  }
++  PRINTF("[ERROR] RNG generation failed twice\n");
++  return EXEC_STATUS_ERROR;
++}

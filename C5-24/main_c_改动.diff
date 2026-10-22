@@ -1,0 +1,26 @@
+--- official/application/main.c
++++ c5_24/application/main.c
+@@ -115,22 +115,4 @@
+   while (1);
+ } /* end success_handler */
+ 
+-/** Redefines the HardFault handler from the startup file.
+-  * brief:  Hard Fault Handler
+-  * retval: None (infinite loop)
+-  *
+-  * The default handler is redefined here so that:
+-  * 1. The example status can be updated.
+-  * 2. You can easily set a breakpoint to investigate the issue.
+-  */
+-void HardFault_Handler(void)
+-{
+-  /* The example encountered an unrecoverable error */
+-  ExecStatus = EXEC_STATUS_ERROR;
+-
+-  /* Take a chance to turn the status LED off (this might fail) */
+-  led_off(MX_STATUS_LED);
+-
+-  /* Unrecoverable error: infinite loop */
+-  while (1);
+-}
++/* C5 #24：HardFault_Handler 移到 example.c，改为记录现场后软复位 */

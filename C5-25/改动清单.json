@@ -1,0 +1,38 @@
+[
+  {
+    "official_path": "application/example_flash.c",
+    "package_path": "example_flash.c",
+    "diff": "example_flash_c_改动.diff",
+    "sha256": "13fdf8f8434e673e441b1b8d93f2fd952cc81b2797da6eabcb117cfa4f8602a1"
+  },
+  {
+    "official_path": "NUCLEO-C542RC/cmake/cmake/components.cmake",
+    "package_path": "NUCLEO-C542RC/cmake/cmake/components.cmake",
+    "diff": "components_cmake_改动.diff",
+    "sha256": "19d9cabc3b0d09e1be8a96df87c9e313725d975edb2012cba2ae5ccf547712f7"
+  },
+  {
+    "official_path": "NUCLEO-C542RC/cmake/cmake/flags.cmake",
+    "package_path": "NUCLEO-C542RC/cmake/cmake/flags.cmake",
+    "diff": "flags_cmake_改动.diff",
+    "sha256": "f0935fe9b611a94f9f24a1613246ec4c3ba0ab67decb526aebf9d61f538e5ae4"
+  },
+  {
+    "official_path": "NUCLEO-C542RC/generated/hal/stm32_external_env.h",
+    "package_path": "NUCLEO-C542RC/generated/hal/stm32_external_env.h",
+    "diff": "stm32_external_env_h_改动.diff",
+    "sha256": "90335c8d155c0d3a3086cabffdb77c4f0e100f36b82f6767f5a9e40d40968137"
+  },
+  {
+    "official_path": "NUCLEO-C542RC/generated/hal/stm32c5xx_hal_conf.h",
+    "package_path": "NUCLEO-C542RC/generated/hal/stm32c5xx_hal_conf.h",
+    "diff": "stm32c5xx_hal_conf_h_改动.diff",
+    "sha256": "9e2b9c227959c420648bed6b6f1186110a86b3e46e8cc59a2af4bc351aa67ec2"
+  },
+  {
+    "official_path": "NUCLEO-C542RC/user_modifiable/Device/STM32C542RCT6/stm32c542xc_flash.ld",
+    "package_path": "NUCLEO-C542RC/user_modifiable/Device/STM32C542RCT6/stm32c542xc_flash.ld",
+    "diff": "stm32c542xc_flash_ld_改动.diff",
+    "sha256": "d02ef8a3fe83242af51f1080621ff49eb5d3e3ab92c60b7b72720a4b58ce763c"
+  }
+]

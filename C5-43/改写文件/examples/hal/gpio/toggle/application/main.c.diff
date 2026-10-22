@@ -1,0 +1,38 @@
+--- sdk_ref/examples/hal/gpio/toggle/application/main.c
++++ sdk_mod/examples/hal/gpio/toggle/application/main.c
+@@ -20,7 +20,18 @@
+ /* Private typedef -----------------------------------------------------------*/
+ /* Private define ------------------------------------------------------------*/
+ /* @user: configure the delay in milliseconds between 2 loop rounds */
+-#define EXAMPLE_LOOP_DELAY_MS 100U
++#if C5_APP_VERSION == 1
++#define EXAMPLE_LOOP_DELAY_MS 1000U
++#elif C5_APP_VERSION == 2
++#define EXAMPLE_LOOP_DELAY_MS 250U
++#else
++#error "C5_APP_VERSION must be 1 or 2"
++#endif
++
++/* 教学观测量：调试器读取，不占用Bootloader串口。 */
++volatile uint32_t g_app_version = C5_APP_VERSION;
++volatile uint32_t g_app_vtor = 0U;
++volatile uint32_t g_app_loops = 0U;
+ 
+ /* Private macro -------------------------------------------------------------*/
+ /* Private variables ---------------------------------------------------------*/
+@@ -50,12 +61,15 @@
+       * You might copy/paste it in your own application,
+       * while you might keep on generating the initialization and configuration code with STM32CubeMX.
+       */
++    g_app_version = C5_APP_VERSION;
++    g_app_vtor = SCB->VTOR;
+     ExecStatus = app_init();
+ 
+     /* Run endlessly if no error occurs */
+     while (ExecStatus != EXEC_STATUS_ERROR)
+     {
+       ExecStatus = app_process();
++      g_app_loops++;
+ 
+       HAL_Delay(EXAMPLE_LOOP_DELAY_MS);
+     } /* end while */

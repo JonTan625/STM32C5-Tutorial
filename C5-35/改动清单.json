@@ -1,0 +1,20 @@
+[
+  {
+    "file": "example.c",
+    "official_path": "examples/ll/opamp/programmable_gain_amplifier/application/example.c",
+    "diff": "example_c_改动.diff",
+    "sha256": "fb3d0cf6dde48fd9a312db36008f9ae7b0832cd63824e037f682d0cf7efede42"
+  },
+  {
+    "file": "ll_example.h",
+    "official_path": "examples/ll/opamp/programmable_gain_amplifier/application/ll_example.h",
+    "diff": "ll_example_h_改动.diff",
+    "sha256": "161458cc28494e2d95727173c19ffbeac6b596e451c4b93af20debd22e390c66"
+  },
+  {
+    "file": "stm32c5xx_ll_example.c",
+    "official_path": "examples/ll/opamp/programmable_gain_amplifier/application/stm32c5xx_ll_example.c",
+    "diff": "stm32c5xx_ll_example_c_改动.diff",
+    "sha256": "b86e18d01f1556e1dd0a7ded2a271e8735bf8d2d9eec719bf0d9a28b493ba88e"
+  }
+]

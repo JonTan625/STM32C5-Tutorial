@@ -1,0 +1,2 @@
+   text	   data	    bss	    dec	    hex	filename
+   6888	     96	   1904	   8888	   22b8	<工作目录>\examples\hal\gpio\toggle\NUCLEO-C542RC\cmake\build\debug_GCC_NUCLEO-C542RC\hal_gpio_toggle.elf

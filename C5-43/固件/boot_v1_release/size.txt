@@ -1,0 +1,2 @@
+   text	   data	    bss	    dec	    hex	filename
+  34184	    528	  12600	  47312	   b8d0	<工作目录>\examples\middleware\open_bootloader\demo\NUCLEO-C542RC\cmake\build\release_GCC_NUCLEO-C542RC\open_bootloader_demo.elf

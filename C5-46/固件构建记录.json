@@ -1,0 +1,108 @@
+{
+  "date": "2026-10-21",
+  "board": "NUCLEO-C542RC / STM32C542RCT6",
+  "sdk": "STM32C5 MCU HAL 2.1.0",
+  "sdk_zip_sha256": "7bd849539c665226dcb5b10ab3d0858ce59d79ed51f9ed289357b2ba4435bb8b",
+  "base_example": "examples/hal/adc/single_conversion_trigger_sw_it",
+  "tools": [
+    "cmake version 4.4.0",
+    "CMake suite maintained and supported by Kitware (kitware.com/cmake).",
+    "arm-none-eabi-gcc.exe (GNU Tools for STM32 14.3.rel1.20251027-0700) 14.3.1 20250623"
+  ],
+  "official_builds": {
+    "debug": {
+      "text": 16192,
+      "sha256": "b9a899f693f1cd8160e9a5f9fe3bf5821132bf10f6e2e3cecc5688925c7da6ef"
+    },
+    "release": {
+      "text": 8216,
+      "sha256": "34bddf0e013c3608204568a4a34c0948999214177956807f950832bd8f495fd2"
+    }
+  },
+  "firmware": {
+    "prod_debug": {
+      "elf_sha256": "2b01c51eea8d8fa6d20ff8907b54b767260c004d96c1f9197bd8495f44f69ab8",
+      "bin_sha256": "7da975c255049f4f9396d12969ed7674ca85f6f4ba3efce6dcc50bc54a27833b",
+      "bin_bytes": 34568,
+      "flash_origin": "0x08000000",
+      "flash_load_end": "0x8008708",
+      "text": 34472,
+      "data": 96,
+      "bss": 3264,
+      "test_commands": false,
+      "defines": [],
+      "warning_flags": [
+        "-Wall",
+        "-Werror=implicit-function-declaration",
+        "-Wl",
+        "-Wno-comment"
+      ],
+      "explicit_buffers_bytes": 962
+    },
+    "prod_release": {
+      "elf_sha256": "54bf1e8900881c5d5293e7c5b6154fc087696be06ab0dcab4aba767eb05982a0",
+      "bin_sha256": "aabdb086f28b6f6645d0adb71d4dce7c7b79c17de28225c4276964bdd2316928",
+      "bin_bytes": 18960,
+      "flash_origin": "0x08000000",
+      "flash_load_end": "0x8004a10",
+      "text": 18864,
+      "data": 96,
+      "bss": 3264,
+      "test_commands": false,
+      "defines": [],
+      "warning_flags": [
+        "-Wall",
+        "-Werror=implicit-function-declaration",
+        "-Wl",
+        "-Wno-comment"
+      ],
+      "explicit_buffers_bytes": 962
+    },
+    "test_debug": {
+      "elf_sha256": "2351731c2074b4158107274ffbf5d4d132afe1294a53c1a0d379b4436f482a2f",
+      "bin_sha256": "53d2d398232a09a2490987d740c03b1ce67927cfbc5050e20948df68fd8e1b30",
+      "bin_bytes": 35336,
+      "flash_origin": "0x08000000",
+      "flash_load_end": "0x8008a08",
+      "text": 35240,
+      "data": 96,
+      "bss": 3280,
+      "test_commands": true,
+      "defines": [
+        "P46_CFG_SLOTS=4",
+        "P46_TEST=1"
+      ],
+      "warning_flags": [
+        "-Wall",
+        "-Werror=implicit-function-declaration",
+        "-Wl",
+        "-Wno-comment"
+      ],
+      "explicit_buffers_bytes": 962
+    },
+    "test_release": {
+      "elf_sha256": "b27e7173fc810405ccfdff4b0e90c1ea42bc39abeb2942dbe6f408330e71e2ab",
+      "bin_sha256": "db57047eaf62452112f6e451ff00ef330d2107d8674a602a0e47093b0ce3f977",
+      "bin_bytes": 19472,
+      "flash_origin": "0x08000000",
+      "flash_load_end": "0x8004c10",
+      "text": 19376,
+      "data": 96,
+      "bss": 3272,
+      "test_commands": true,
+      "defines": [
+        "P46_CFG_SLOTS=4",
+        "P46_TEST=1"
+      ],
+      "warning_flags": [
+        "-Wall",
+        "-Werror=implicit-function-declaration",
+        "-Wl",
+        "-Wno-comment"
+      ],
+      "explicit_buffers_bytes": 962
+    }
+  },
+  "compiler_warnings": 0,
+  "hardware": "未上板：2026-10-21 未检测到 ST-LINK；18 条验收全部待执行"
+}

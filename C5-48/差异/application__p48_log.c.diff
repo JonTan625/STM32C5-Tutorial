@@ -1,0 +1,298 @@
+--- /dev/null
++++ c5_46/application/p48_log.c
+@@ -0,0 +1,295 @@
++/**
++  ******************************************************************************
++  * file           : p48_log.c
++  * brief          : C5 #48 环形日志（F03）：bank 2（0x08020000 起）共 P48_LOG_PAGES 页，每条 16 字节。
++  *                  写到页首时先擦这一页（它是最旧的一页）；页中遇到非空槽就跳过；读回逐字比较。
++  *                  程序只在 bank 1，擦写 bank 2 时照常从 bank 1 取指（RM0522 §6.3.7 p138）。
++  *                  16 字节写入、停 ICACHE、ECC NMI 处理沿用 #46（#22 写法已上板）；页擦除写法同 #22。
++  ******************************************************************************
++  */
++#include "p48.h"
++#include "mx_icache.h"
++
++#define P48_FLASH_TIMEOUT_MS  50U
++
++_Static_assert(sizeof(p48_rec_t) == 16U, "one quad-word per record");
++_Static_assert((P48_LOG_ADDR + (P48_LOG_PAGES * P48_PAGE_BYTES)) <= 0x08040000UL, "log must stay inside the 256 KB flash");
++
++p48_log_stat_t g_log;
++
++static hal_flash_handle_t s_flash;
++static volatile uint32_t s_ecc_hits;
++volatile uint32_t g_log_ecc_addr;      /* 第一次双 ECC 错误的 Flash 行号，供调试器查看 */
++static uint32_t s_iter_slot;
++static uint32_t s_iter_left;
++static uint32_t s_iter_skip;
++
++void NMI_Handler(void);
++
++uint16_t log_crc16(const uint8_t *p_data, uint32_t len)
++{
++  uint16_t crc = 0xFFFFU;    /* CRC-16/CCITT-FALSE：poly 0x1021，不反射，xorout 0；"123456789" → 0x29B1 */
++
++  for (uint32_t i = 0U; i < len; i++)
++  {
++    crc ^= (uint16_t)((uint16_t)p_data[i] << 8);
++    for (uint32_t b = 0U; b < 8U; b++)
++    {
++      crc = ((crc & 0x8000U) != 0U) ? (uint16_t)((crc << 1) ^ 0x1021U) : (uint16_t)(crc << 1);
++    }
++  }
++  return crc;
++}
++
++/* 双 ECC 错误产生 NMI（RM0522 §6.8.5 p169）；ECCD 写 1 清除（§6.10.31 p198），须让 ICACHE 失效。同 #46 */
++void NMI_Handler(void)
++{
++  if ((FLASH->ECCDETR & FLASH_ECCDETR_ECCD) != 0U)
++  {
++    g_log_ecc_addr = FLASH->ECCDETR & FLASH_ECCDETR_ADDR_ECC;
++    FLASH->ECCDETR |= FLASH_ECCDETR_ECCD;
++    ICACHE->CR |= ICACHE_CR_CACHEINV;
++    s_ecc_hits++;
++    return;
++  }
++  while (1)
++  {
++  }
++}
++
++static uint32_t slot_addr(uint32_t slot)
++{
++  return P48_LOG_ADDR + (slot * 16U);
++}
++
++/* 返回 1 表示读这 16 字节时触发了双 ECC 错误 */
++static uint8_t read_slot(uint32_t slot, p48_rec_t *p_rec)
++{
++  const volatile uint32_t *p = (const volatile uint32_t *)slot_addr(slot);
++  uint32_t before = s_ecc_hits;
++
++  p_rec->head = p[0];
++  p_rec->seq  = p[1];
++  p_rec->time = p[2];
++  p_rec->data = p[3];
++  __DSB();
++  __ISB();
++  return (s_ecc_hits != before) ? 1U : 0U;
++}
++
++static uint8_t rec_blank(const p48_rec_t *p_rec)
++{
++  return ((p_rec->head & p_rec->seq & p_rec->time & p_rec->data) == 0xFFFFFFFFUL) ? 1U : 0U;
++}
++
++static uint8_t rec_valid(const p48_rec_t *p_rec)
++{
++  return (((p_rec->head >> 16) == P48_REC_MAGIC)
++          && ((p_rec->head & 0xFFFFUL) == log_crc16((const uint8_t *)&p_rec->seq, 12U))) ? 1U : 0U;
++}
++
++static uint8_t page_blank(uint32_t page)
++{
++  p48_rec_t rec;
++
++  for (uint32_t i = 0U; i < P48_SLOTS_PER_PAGE; i++)
++  {
++    if ((read_slot((page * P48_SLOTS_PER_PAGE) + i, &rec) != 0U) || (rec_blank(&rec) == 0U))
++    {
++      return 0U;
++    }
++  }
++  return 1U;
++}
++
++static uint32_t page_valid_count(uint32_t page)
++{
++  p48_rec_t rec;
++  uint32_t n = 0U;
++
++  for (uint32_t i = 0U; i < P48_SLOTS_PER_PAGE; i++)
++  {
++    if ((read_slot((page * P48_SLOTS_PER_PAGE) + i, &rec) == 0U) && (rec_valid(&rec) != 0U))
++    {
++      n++;
++    }
++  }
++  return n;
++}
++
++static int32_t erase_page(uint32_t page)
++{
++  hal_status_t st;
++
++  g_log.valid -= page_valid_count(page);   /* 这一页的记录即将消失 */
++  HAL_FLASH_ITF_Unlock(HAL_FLASH);
++  HAL_ICACHE_Stop(mx_icache_gethandle());
++  st = HAL_FLASH_EraseByAddr(&s_flash, P48_LOG_ADDR + (page * P48_PAGE_BYTES), P48_PAGE_BYTES, P48_FLASH_TIMEOUT_MS);
++  HAL_ICACHE_Start(mx_icache_gethandle(), HAL_ICACHE_IT_NONE);
++  (void)HAL_ICACHE_Invalidate(mx_icache_gethandle());
++  HAL_FLASH_ITF_Lock(HAL_FLASH);
++  g_log.erases++;
++  return (st == HAL_OK) ? 0 : -1;
++}
++
++int32_t log_init(void)
++{
++  p48_rec_t rec;
++  uint8_t have = 0U;
++  uint32_t best_slot = 0U;
++
++  if (HAL_FLASH_Init(&s_flash, HAL_FLASH) != HAL_OK)   /* 默认 16 字节编程 */
++  {
++    return -1;
++  }
++  g_log = (p48_log_stat_t){0};
++  for (uint32_t slot = 0U; slot < P48_LOG_SLOTS; slot++)
++  {
++    if (read_slot(slot, &rec) != 0U)
++    {
++      g_log.ecc++;
++      continue;
++    }
++    if (rec_blank(&rec) != 0U)
++    {
++      continue;
++    }
++    if (rec_valid(&rec) == 0U)
++    {
++      g_log.bad++;            /* 外来数据、写到一半的记录 */
++      continue;
++    }
++    g_log.valid++;
++    if ((have == 0U) || (rec.seq > g_log.last_seq))
++    {
++      g_log.last_seq = rec.seq;
++      best_slot = slot;
++      have = 1U;
++    }
++  }
++  g_log.next_slot = (have != 0U) ? ((best_slot + 1U) % P48_LOG_SLOTS) : 0U;
++  return 0;
++}
++
++int32_t log_append(uint32_t time, uint32_t data)
++{
++  p48_rec_t rec;
++  p48_rec_t back;
++  hal_status_t st;
++  uint32_t slot;
++
++  for (uint32_t tries = 0U; tries < P48_LOG_SLOTS; tries++)
++  {
++    slot = g_log.next_slot;
++    if (((slot % P48_SLOTS_PER_PAGE) == 0U) && (page_blank(slot / P48_SLOTS_PER_PAGE) == 0U))
++    {
++      if (erase_page(slot / P48_SLOTS_PER_PAGE) != 0)
++      {
++        g_log.write_errors++;
++        g_log.next_slot = (slot + P48_SLOTS_PER_PAGE) % P48_LOG_SLOTS;   /* 这一页擦不掉：整页跳过 */
++        continue;
++      }
++    }
++    if ((read_slot(slot, &back) != 0U) || (rec_blank(&back) == 0U))
++    {
++      g_log.next_slot = (slot + 1U) % P48_LOG_SLOTS;    /* 页中脏槽：跳过，不回填 */
++      continue;
++    }
++    rec.seq = g_log.last_seq + 1U;
++    rec.time = time;
++    rec.data = data;
++    rec.head = ((uint32_t)P48_REC_MAGIC << 16) | log_crc16((const uint8_t *)&rec.seq, 12U);
++
++    HAL_FLASH_ITF_Unlock(HAL_FLASH);
++    HAL_ICACHE_Stop(mx_icache_gethandle());
++    st = HAL_FLASH_ProgramByAddr(&s_flash, slot_addr(slot), (const uint32_t *)&rec, sizeof(rec), P48_FLASH_TIMEOUT_MS);
++    HAL_ICACHE_Start(mx_icache_gethandle(), HAL_ICACHE_IT_NONE);
++    (void)HAL_ICACHE_Invalidate(mx_icache_gethandle());
++    HAL_FLASH_ITF_Lock(HAL_FLASH);
++    g_log.next_slot = (slot + 1U) % P48_LOG_SLOTS;
++    if ((st != HAL_OK) || (read_slot(slot, &back) != 0U) || (back.head != rec.head) || (back.seq != rec.seq)
++        || (back.time != rec.time) || (back.data != rec.data))
++    {
++      g_log.write_errors++;
++      return -1;
++    }
++    g_log.last_seq = rec.seq;
++    g_log.valid++;
++    return 0;
++  }
++  return -1;
++}
++
++int32_t log_clear(void)
++{
++  int32_t ret = 0;
++
++  for (uint32_t page = 0U; page < P48_LOG_PAGES; page++)
++  {
++    if (page_blank(page) == 0U)
++    {
++      ret |= erase_page(page);
++    }
++  }
++  g_log.valid = 0U;
++  g_log.bad = 0U;
++  g_log.ecc = 0U;
++  g_log.next_slot = 0U;   /* 序号不归零：清除前后的记录仍可按序号区分 */
++  return ret;
++}
++
++/* 遍历从“下一写入页之后的那一页”开始，正好是最旧的一页；当前页中已写的部分最后出现 */
++void log_iter_begin(uint32_t skip)
++{
++  uint32_t page = g_log.next_slot / P48_SLOTS_PER_PAGE;
++
++  s_iter_slot = ((page + 1U) % P48_LOG_PAGES) * P48_SLOTS_PER_PAGE;
++  s_iter_left = P48_LOG_SLOTS;
++  s_iter_skip = skip;
++}
++
++uint8_t log_iter_next(p48_rec_t *p_rec)
++{
++  while (s_iter_left > 0U)
++  {
++    uint32_t slot = s_iter_slot;
++
++    s_iter_slot = (s_iter_slot + 1U) % P48_LOG_SLOTS;
++    s_iter_left--;
++    if ((read_slot(slot, p_rec) == 0U) && (rec_valid(p_rec) != 0U))
++    {
++      if (s_iter_skip > 0U)
++      {
++        s_iter_skip--;
++        continue;
++      }
++      return 1U;
++    }
++  }
++  return 0U;
++}
++
++#if defined(P48_TEST) && (P48_TEST != 0)
++/* 在下一槽写一条 CRC 故意错的记录，用于 R47-10（坏记录跳过）。不更新序号 */
++int32_t log_test_corrupt(void)
++{
++  p48_rec_t rec = {((uint32_t)P48_REC_MAGIC << 16) | 0x1234U, g_log.last_seq + 1U, P48_TIME_INVALID, 0U};
++  uint32_t slot = g_log.next_slot;
++  p48_rec_t now;
++  hal_status_t st;
++
++  if ((read_slot(slot, &now) != 0U) || (rec_blank(&now) == 0U))
++  {
++    return -1;               /* 只在空槽上构造，页首要擦页的情况先正常记一条再试 */
++  }
++  HAL_FLASH_ITF_Unlock(HAL_FLASH);
++  HAL_ICACHE_Stop(mx_icache_gethandle());
++  st = HAL_FLASH_ProgramByAddr(&s_flash, slot_addr(slot), (const uint32_t *)&rec, sizeof(rec), P48_FLASH_TIMEOUT_MS);
++  HAL_ICACHE_Start(mx_icache_gethandle(), HAL_ICACHE_IT_NONE);
++  (void)HAL_ICACHE_Invalidate(mx_icache_gethandle());
++  HAL_FLASH_ITF_Lock(HAL_FLASH);
++  g_log.next_slot = (slot + 1U) % P48_LOG_SLOTS;
++  g_log.bad++;
++  return (st == HAL_OK) ? 0 : -1;
++}
++#endif /* P48_TEST */

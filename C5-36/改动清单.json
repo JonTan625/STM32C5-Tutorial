@@ -1,0 +1,26 @@
+[
+  {
+    "file": "example.c",
+    "official_path": "examples/ll/adc/multi_channels_dma/application/example.c",
+    "diff": "example_c_改动.diff",
+    "sha256": "1a2a53661d13a6373f365cd44c5659bd354fe0fea3f5e2f32ee579164bbf219f"
+  },
+  {
+    "file": "ll_example.h",
+    "official_path": "examples/ll/adc/multi_channels_dma/application/ll_example.h",
+    "diff": "ll_example_h_改动.diff",
+    "sha256": "ce895ddc43ba0407164846b872669f4d4a4f0c5bfe73d8acdc1526a33430f515"
+  },
+  {
+    "file": "main.c",
+    "official_path": "examples/ll/adc/multi_channels_dma/application/main.c",
+    "diff": "main_c_改动.diff",
+    "sha256": "e72ea39a705c8b977e491b86af6288f2c7ca6747ca044311d9549579527658ac"
+  },
+  {
+    "file": "stm32c5xx_ll_example.c",
+    "official_path": "examples/ll/adc/multi_channels_dma/application/stm32c5xx_ll_example.c",
+    "diff": "stm32c5xx_ll_example_c_改动.diff",
+    "sha256": "2dc994642d57506ce7e5f65e56aefe78cc58dafed2488466a9bcc74e55bb7186"
+  }
+]

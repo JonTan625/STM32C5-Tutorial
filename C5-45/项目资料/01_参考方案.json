@@ -1,0 +1,411 @@
+{
+  "date": "2026-10-21",
+  "version": "教学参考v1",
+  "status": "方案/契约；尚未实现、未编译、未实板验收",
+  "basis": "05学习计划第六节项目二；本篇作者教学约定，不是客户已确认需求",
+  "target": "NUCLEO-C542RC / STM32C542RC",
+  "input": "10kΩ线性电位器，单路PA4；I²C为读者可另立需求的替代路线，不在参考实现基线内",
+  "parameters": {
+    "sample_period_ms": 100,
+    "sample_deadline_tolerance_ms": 20,
+    "adc_timeout_ms": 5,
+    "stale_ms": 300,
+    "threshold_low": 2800,
+    "threshold_high": 3000,
+    "qualifying_samples": 3,
+    "alarm_response_ms": 500,
+    "command_response_ms": 200,
+    "command_line_bytes": 32,
+    "rx_ring_bytes": 128,
+    "tx_ring_bytes": 512,
+    "status_max_bytes": 256,
+    "host_commands_per_second": 5,
+    "fault_led_toggle_ms": 250,
+    "watchdog_nominal_ms": 2000,
+    "watchdog_acceptance_ms": [
+      1000,
+      5000
+    ],
+    "adc_kernel_hz": 18000000,
+    "adc_sampling_cycles": 289,
+    "adc_resolution_bits": 12,
+    "app_buffer_budget_bytes": 1024,
+    "config_page_address": "0x0803E000",
+    "config_page_bytes": 8192,
+    "config_record_bytes": 16,
+    "config_slots": 512,
+    "program_origin": "0x08000000",
+    "program_limit_exclusive": "0x0803E000",
+    "program_flash_budget_bytes": 253952,
+    "ram_capacity_bytes": 65536
+  },
+  "states": [
+    "STOP",
+    "RUN",
+    "ALARM",
+    "FAULT"
+  ],
+  "commands": [
+    "HELP",
+    "STATUS",
+    "START",
+    "STOP",
+    "TH low high",
+    "SAVE",
+    "TIME YYYY-MM-DD HH:MM:SS"
+  ],
+  "features": [
+    {
+      "id": "F01",
+      "name": "启动与停止",
+      "trigger": "复位或START/STOP",
+      "behavior": "上电进入STOP；START仅从STOP清采样计数和资格计数后运行，重复START不重启；STOP从任意状态进入STOP，LED灭、当前值无效，历史错误计数保留。",
+      "exit": "STOP结束当前采集；FAULT须STOP后才可重新START",
+      "hardware": "ADC1、PA5、主循环",
+      "verification": "R45-01、R45-02",
+      "source": "05第六节项目二 + 本篇教学约定",
+      "state_condition": "上电或任意当前状态；START仅STOP有效"
+    },
+    {
+      "id": "F02",
+      "name": "定期采集",
+      "trigger": "RUN或ALARM且100ms到期",
+      "behavior": "软件调度单次PA4转换，完成IRQ发布样本；不追赶补采。目标周期100ms，允许±20ms；失败/超时按F07处理。",
+      "exit": "STOP或FAULT停止请求；距START或最后有效样本达到300ms视为过期",
+      "hardware": "ADC1_IN4、SysTick；无TIM6/LPDMA",
+      "verification": "R45-03、R45-04",
+      "source": "05第六节项目二 + 本篇教学约定",
+      "state_condition": "仅RUN/ALARM，且上一转换已完成或已被终止"
+    },
+    {
+      "id": "F03",
+      "name": "阈值与迟滞",
+      "trigger": "新的有效样本到达",
+      "behavior": "正常时连续3样本>=high进入ALARM；ALARM时连续3样本<=low返回RUN；不满足本方向条件即清本方向计数，迟滞带内保持当前状态。",
+      "exit": "STOP清资格计数；FAULT优先于报警；high/low仅在STOP修改",
+      "hardware": "PA5 LD1高有效；ADC12bit码值",
+      "verification": "R45-05、R45-06",
+      "source": "05第六节项目二 + 本篇教学约定",
+      "state_condition": "仅RUN/ALARM的新有效样本"
+    },
+    {
+      "id": "F04",
+      "name": "串口查询和设置",
+      "trigger": "收到以CR或LF结束的ASCII行",
+      "behavior": "115200/8N1；HELP/STATUS/START/STOP/TH low high/SAVE/TIME。命令区分大小写；一命令一最终回复，CRLF视为一次结束，空行忽略；TH/TIME/SAVE仅STOP允许。",
+      "exit": "超32字节丢弃到行尾，只回一次ERR LONG；未知/越界/忙分别返回错误且无副作用",
+      "hardware": "USART2 PA2/PA3 AF7，RX128/TX512，命令行32字节",
+      "verification": "R45-07、R45-08、R45-09",
+      "source": "05第六节项目二 + 本篇教学约定",
+      "state_condition": "串口可服务状态；TH/TIME/SAVE仅STOP"
+    },
+    {
+      "id": "F05",
+      "name": "RTC与时间有效性",
+      "trigger": "TIME命令、事件或STATUS",
+      "behavior": "TIME YYYY-MM-DD HH:MM:SS，2000～2099合法公历；无有效日历时显示UNSET。B2复位保留已设置日历的目标行为；无备用电源的冷启动不承诺保时，重新TIME。",
+      "exit": "没有有效时间仍可采集，事件标记time_valid=0；不可把UNSET当真实日期",
+      "hardware": "RTC、LSE；日历秒分辨率，seq区分同秒样本",
+      "verification": "R45-10、R45-11",
+      "source": "05第六节项目二 + 本篇教学约定",
+      "state_condition": "TIME仅STOP；读取可在任意状态"
+    },
+    {
+      "id": "F06",
+      "name": "阈值保存与恢复",
+      "trigger": "STOP状态收到SAVE或上电扫描",
+      "behavior": "仅保存low/high；末页追加16字节记录，读回并校验成功后才OK SAVE；值与最后有效保存相同则OK SAME且不追加；无有效可读记录时用2800/3000并提示DEFAULT。",
+      "exit": "满页ERR FULL且不擦页、不覆盖旧记录；运行时SAVE返回ERR BUSY；ECC不可读不能只当CRC错误处理",
+      "hardware": "主Flash最后8KB页，程序链接预算248KB；软件CRC-32/MPEG-2",
+      "verification": "R45-12、R45-13、R45-14、R45-15",
+      "source": "05第六节项目二 + 本篇教学约定",
+      "state_condition": "上电读取；SAVE仅STOP"
+    },
+    {
+      "id": "F07",
+      "name": "异常状态与可见提示",
+      "trigger": "ADC驱动错误；未完成请求elapsed>=5ms；从START或最后有效样本起elapsed>=300ms",
+      "behavior": "进入FAULT，停止采样，LD1每250ms翻转；保留fault_code、发生时seq与RTC有效标记。主循环仍服务STATUS/STOP；ADC悬空但码值合法不保证检测。",
+      "exit": "STOP结束FAULT闪灯、保留历史故障；修复后由STOP→START重新尝试",
+      "hardware": "ADC状态、调度时基、PA5；故障提示不是安全联锁",
+      "verification": "R45-04、R45-16",
+      "source": "05第六节项目二 + 本篇教学约定",
+      "state_condition": "RUN/ALARM监测；FAULT仍能服务终端"
+    },
+    {
+      "id": "F08",
+      "name": "看门狗与复位原因",
+      "trigger": "初始化完成后持续运行",
+      "behavior": "IWDG目标配置2000ms；只在主循环调度/终端服务均推进时喂狗，不能在定时ISR无条件喂。STOP和被正确处理的FAULT可继续喂狗；启动先快照复位原因再清标志。",
+      "exit": "卡死测试停止健康上报后，独立运行1～5s内复位；具体LSI/寄存器和误差须在#46取证",
+      "hardware": "IWDG/LSI、RCC复位原因；测试专用卡死钩子不作为正常命令",
+      "verification": "R45-17",
+      "source": "05第六节项目二 + 本篇教学约定",
+      "state_condition": "初始化完成后，包含STOP/正常处理中的FAULT"
+    },
+    {
+      "id": "F09",
+      "name": "模块交接与资源预算",
+      "trigger": "中断发布、主循环取走样本/命令",
+      "behavior": "ADC和UART ISR仅搬运/置标志；主循环做解析、报警、RTC标记与保存。显式缓冲预算1KB；STATUS<=256B，最多5命令/s且主机等待回复，禁止无限流打印。",
+      "exit": "队列满计数并保留同步边界；实际栈/库/总RAM及最坏时延由map和实测确认",
+      "hardware": "ADC IRQ0、USART2 IRQ1、SysTick3为拟分配；无DMA",
+      "verification": "R45-03、R45-07、R45-18",
+      "source": "05第六节项目二 + 本篇教学约定",
+      "state_condition": "中断与主循环并发，负载限定为主机逐条命令"
+    },
+    {
+      "id": "F10",
+      "name": "复现与交付",
+      "trigger": "完成实现后提交项目",
+      "behavior": "需求/资源/接口/测试能按F与R编号对账；交付源码差异、工具版本、Debug/Release日志、ELF/BIN身份、已知限制。正常掉电测试仅在SAVE成功回复后进行。",
+      "exit": "未实测不打勾；写入中掉电的任意断电原子性、ECC恢复、真实故障覆盖另行设计验证",
+      "hardware": "独立项目自0x08000000启动，不与#43Bootloader组合",
+      "verification": "R45-14、R45-18",
+      "source": "05第六节项目二 + 本篇教学约定",
+      "state_condition": "进入#46实现和交付阶段"
+    }
+  ],
+  "tests": [
+    {
+      "id": "R45-01",
+      "features": [
+        "F01",
+        "F06"
+      ],
+      "name": "首次启动",
+      "operation": "无有效配置的专用实验板启动",
+      "pass_criteria": "STOP、LED灭、默认low2800/high3000、raw=NA；有有效记录则加载该记录。",
+      "category": "正常/启动",
+      "status": "待#46实现后执行"
+    },
+    {
+      "id": "R45-02",
+      "features": [
+        "F01"
+      ],
+      "name": "START/STOP幂等性",
+      "operation": "START、再START、STOP、再STOP；ALARM及FAULT下STOP",
+      "pass_criteria": "重复START不清运行seq；STOP后raw=NA、LED灭、无新采样，历史错误保留。",
+      "category": "状态/重复",
+      "status": "待#46实现后执行"
+    },
+    {
+      "id": "R45-03",
+      "features": [
+        "F02",
+        "F09"
+      ],
+      "name": "周期与数据新鲜度",
+      "operation": "运行60s，记录样本软件时间戳和seq，配合时基核对",
+      "pass_criteria": "正常条件相邻周期80～120ms，不补采，seq递增；软件时间与仪器证据分开。",
+      "category": "时序",
+      "status": "待#46实现后执行"
+    },
+    {
+      "id": "R45-04",
+      "features": [
+        "F02",
+        "F07"
+      ],
+      "name": "超时和过期",
+      "operation": "测试钩子分别屏蔽完成事件、模拟迟到；不靠拔PA4造故障",
+      "pass_criteria": "单次5ms边界与300ms过期阈值按契约进FAULT，停止采集、可查询故障原因。",
+      "category": "错误/边界",
+      "status": "待#46实现后执行"
+    },
+    {
+      "id": "R45-05",
+      "features": [
+        "F03"
+      ],
+      "name": "报警资格计数",
+      "operation": "先对照注入样本2999/3000/3000/3000与复位计数组合，再用电位器",
+      "pass_criteria": "只有连续3次>=3000亮灯；中途2999打断计数，进入报警后迟滞带不清警。",
+      "category": "边界/算法与实物分开",
+      "status": "待#46实现后执行"
+    },
+    {
+      "id": "R45-06",
+      "features": [
+        "F03"
+      ],
+      "name": "清警与迟滞",
+      "operation": "ALARM下送2801/2800/2800/2800及带内值",
+      "pass_criteria": "连续3次<=2800回RUN；间断不清警；稳定越限/恢复到LED变化目标<=500ms。",
+      "category": "边界/响应",
+      "status": "待#46实现后执行"
+    },
+    {
+      "id": "R45-07",
+      "features": [
+        "F04",
+        "F09"
+      ],
+      "name": "命令与CRLF",
+      "operation": "逐条发送合法命令，含CR、LF、CRLF、空行",
+      "pass_criteria": "每条非空命令一个最终回复，空行忽略；等待回复且<=5/s时最终回复<=200ms，STATUS<=256B。",
+      "category": "正常/接口",
+      "status": "待#46实现后执行"
+    },
+    {
+      "id": "R45-08",
+      "features": [
+        "F04"
+      ],
+      "name": "参数和运行限制",
+      "operation": "TH 3000 2800、TH -1 3000、TH 0 4096、运行时TH/TIME/SAVE",
+      "pass_criteria": "ERR RANGE或ERR BUSY；原参数/RTC/Flash不变；TH 0 4095在STOP可接受。",
+      "category": "越界/无副作用",
+      "status": "待#46实现后执行"
+    },
+    {
+      "id": "R45-09",
+      "features": [
+        "F04"
+      ],
+      "name": "超长及非法输入",
+      "operation": "发送33字节行、未知命令、结束后再发STATUS",
+      "pass_criteria": "超长仅一个ERR LONG；未知ERR CMD；下一条STATUS仍能正常解析；非法格式ERR FORMAT。",
+      "category": "错误/恢复",
+      "status": "待#46实现后执行"
+    },
+    {
+      "id": "R45-10",
+      "features": [
+        "F05"
+      ],
+      "name": "校时与非法日期",
+      "operation": "STOP下设置合法时间，再输入不存在日期和运行时TIME",
+      "pass_criteria": "合法值可查询；非法日期无副作用；运行时ERR BUSY；事件时间带time_valid标记。",
+      "category": "日期边界",
+      "status": "待#46实现后执行"
+    },
+    {
+      "id": "R45-11",
+      "features": [
+        "F05"
+      ],
+      "name": "复位和断电时间边界",
+      "operation": "TIME后B2；再无备用供电独立断电上电",
+      "pass_criteria": "B2保留目标日历；冷启动没有有效保时依据时为UNSET，TIME后恢复；不伪造当前时间。",
+      "category": "恢复",
+      "status": "待#46实现后执行"
+    },
+    {
+      "id": "R45-12",
+      "features": [
+        "F06"
+      ],
+      "name": "保存读回与去重",
+      "operation": "STOP中TH修改、SAVE，核记录及读回；再SAVE同值",
+      "pass_criteria": "写16字节并完整读回/CRC通过后才OK SAVE；第二次OK SAME、记录序号不变。",
+      "category": "正常/去重",
+      "status": "待#46实现后执行"
+    },
+    {
+      "id": "R45-13",
+      "features": [
+        "F06"
+      ],
+      "name": "页满",
+      "operation": "专用边界测试配置缩减槽数，再连续保存不同参数",
+      "pass_criteria": "满后ERR FULL，旧有效记录保留，未擦页、未回绕；不能当普通512槽固件结果。",
+      "category": "容量/变体身份",
+      "status": "待#46实现后执行"
+    },
+    {
+      "id": "R45-14",
+      "features": [
+        "F06",
+        "F10"
+      ],
+      "name": "正常掉电保持",
+      "operation": "SAVE成功后断电重启；另做TH成功但未SAVE再复位",
+      "pass_criteria": "已保存阈值恢复且STOP；仅RAM修改丢失；不包含写入瞬间断电原子性承诺。",
+      "category": "掉电/恢复",
+      "status": "待#46实现后执行"
+    },
+    {
+      "id": "R45-15",
+      "features": [
+        "F06"
+      ],
+      "name": "坏记录与ECC边界",
+      "operation": "主机模型/测试镜像构造格式或CRC错误记录；专门评估不可纠正ECC",
+      "pass_criteria": "可读坏记录不采用；无有效记录用默认并提示。ECC不可读路径另留实板证据，不以CRC测试替代。",
+      "category": "错误/验证欠账",
+      "status": "待#46实现后执行"
+    },
+    {
+      "id": "R45-16",
+      "features": [
+        "F07"
+      ],
+      "name": "运行故障后重试",
+      "operation": "测试钩子造ADC错误，STATUS，STOP，修复后START",
+      "pass_criteria": "FAULT闪灯每250ms翻转，错误字段可读；STOP灭灯保留错误计数，重新START成功后恢复采集。",
+      "category": "错误/恢复",
+      "status": "待#46实现后执行"
+    },
+    {
+      "id": "R45-17",
+      "features": [
+        "F08"
+      ],
+      "name": "看门狗卡死复位",
+      "operation": "专用测试钩子让调度主线停止推进；独立运行测时，复位后查询原因",
+      "pass_criteria": "1～5s内复位，原因含IWDG，STOP恢复；正常STOP/可处理FAULT不应形成复位循环。",
+      "category": "故障/独立实板",
+      "status": "待#46实现后执行"
+    },
+    {
+      "id": "R45-18",
+      "features": [
+        "F09",
+        "F10"
+      ],
+      "name": "完整交付回归",
+      "operation": "Debug/Release各做正常/边界/错误/冷启动，至少运行10min并核map",
+      "pass_criteria": "固定负载下未解释丢失计数不增加；显式缓冲<=1KB、总RAM含栈有依据；源码/产物/测试身份一致。",
+      "category": "交付/持续运行",
+      "status": "待#46实现后执行"
+    }
+  ],
+  "not_in_scope": [
+    "高精度定时采样/DMA持续流",
+    "绝对电压或温度测量精度",
+    "全部采样数据持久化",
+    "无备用电源的RTC断电保时",
+    "传感器断线的可靠诊断",
+    "任意写入瞬间掉电原子性",
+    "Flash自动擦除回收/循环覆盖",
+    "Bootloader/RTOS/网络/电机/强电执行器"
+  ],
+  "storage_format": {
+    "magic_version": "0xC5450001",
+    "word0": "magic_version",
+    "word1": "uint32 sequence",
+    "word2": "low in bits15:0; high in bits31:16",
+    "word3": "CRC32 over the first 12 bytes in little-endian memory order",
+    "crc": "CRC-32/MPEG-2; poly0x04C11DB7; init0xFFFFFFFF; refin=false; refout=false; xorout0; software implementation planned",
+    "crc_check_123456789": "0x0376E6E7",
+    "validity": "magic/version、low<high<=4095、CRC均满足；只在读取成功的记录中选最大序号"
+  },
+  "irq_allocation": {
+    "ADC1_IRQn": 0,
+    "USART2_IRQn": 1,
+    "SysTick": 3,
+    "status": "拟分配，非当前寄存器状态"
+  },
+  "buffer_reservations": {
+    "rx": 128,
+    "tx": 512,
+    "line_with_nul": 33,
+    "sample_snapshot": 32,
+    "last_event": 64,
+    "config_working_copy": 32,
+    "total": 801,
+    "status": "纸面预算，不含库/栈/其他全局"
+  }
+}

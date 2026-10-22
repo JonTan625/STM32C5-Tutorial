@@ -1,0 +1,222 @@
+--- official/hal/adc/single_conversion_trigger_sw_it/application/example.c
++++ c5_31/hal/adc/single_conversion_trigger_sw_it/application/example.c
+@@ -23,15 +23,38 @@
+ /* Assumption: pin Vref+ connected to Vdd at board level */
+ #define VREFPLUS_APPLI    (VDD_VALUE)
+ 
++/* C5 #31 改写（相对官方 single_conversion_trigger_sw_it）：
++ * 1. 规则组改为两个通道：第 1 位 PA4（ADC1_IN4，接电位器中间脚），第 2 位 VrefInt；
++ *    用 VREFINT_CAL 求出实际 VREF+，再把 PA4 的原始值换算成毫伏（官方假设 VREF+ = 3300 mV）；
++ * 2. 每次报告连续转换 NB_SAMPLES 次，打印平均、最小、最大，看得见读数抖动；
++ * 3. PA4 的采样时间收成一个宏 PA4_SAMPLING_TIME，供第 10 节练习修改；
++ * 4. 溢出模式改为保留（ADC_DR 带 8 级 FIFO，RM0522 第 591 页），两个通道的结果不会互相覆盖；
++ * 5. 等待转换加 10 ms 超时，避免硬件异常时卡死在 __WFI()。
++ * 注意：软件触发的单次模式下，ADSTART 在启动后立即被硬件清零（RM0522 第 640 页），不能用它判断转换是否结束，
++ * 所以下一次启动必须等第 2 个 EOC 回调到来。
++ */
++#define NB_SAMPLES        16U
++#define TIME_OUT_MS       10U
++
++/* 练习：改这一行（HAL_ADC_SAMPLING_TIME_3CYCLES 到 _289CYCLES 共 8 档），见正文第 10 节 */
++#define PA4_SAMPLING_TIME HAL_ADC_SAMPLING_TIME_289CYCLES
++
+ /* Private macro -------------------------------------------------------------*/
+ /* Private variables ---------------------------------------------------------*/
+ hal_adc_handle_t *pADC;  /* pointer referencing the ADC handle from the generated code */
+ 
+-/* Variable for the ADC conversion data (a count on the ADC scale) */
+-uint16_t AdcRawData = 0xFFFFU;
+-
+-/* Value of voltage calculated from ADC conversion data (unit: mV) */
+-uint16_t AdcMilliVolt = 0U;
++/* 一次序列的两个结果：[0] 为 PA4，[1] 为 VrefInt */
++static volatile uint16_t g_raw[2];
++static volatile uint8_t  g_rank_idx = 0U;
++
++/* 每次报告的统计结果，留在全局变量里，调试器可以直接看 */
++uint16_t g_pa4_avg;           /* PA4 原始值平均 */
++uint16_t g_pa4_min;
++uint16_t g_pa4_max;
++uint16_t g_vrefint_avg;       /* VrefInt 原始值平均 */
++uint32_t g_vrefplus_mv;       /* 由 VrefInt 求出的 VREF+（mV） */
++uint32_t g_pa4_mv;            /* PA4 电压（mV），按实测 VREF+ 换算 */
++uint32_t g_pa4_mv_assumed;    /* PA4 电压（mV），按官方假设的 3300 mV 换算，用来对照 */
+ 
+ volatile uint8_t AdcConversionComplete = 0U;  /* Set to 1 if the ADC conversion is correctly completed */
+ volatile uint8_t AdcError = 0U;               /* Set to 1 if an ADC error is detected */
+@@ -67,6 +90,39 @@
+ 
+   PRINTF("[INFO] Step 1: ADC initialization COMPLETED.\n");
+ 
++  /* 改写 1、4：规则组序列长度 2、溢出保留；第 1 位 PA4，第 2 位 VrefInt。必须在 HAL_ADC_Start() 之前配置 */
++  {
++    hal_adc_reg_config_t reg_config;
++    hal_adc_channel_config_t channel_config;
++
++    reg_config.trigger_src       = HAL_ADC_REG_TRIG_SOFTWARE;
++    reg_config.sequencer_length  = 2;
++    reg_config.sequencer_discont = HAL_ADC_REG_SEQ_DISCONT_DISABLE;
++    reg_config.continuous        = HAL_ADC_REG_CONV_SINGLE;
++    reg_config.overrun           = HAL_ADC_REG_OVR_DATA_PRESERVED;
++    if (HAL_ADC_REG_SetConfig(pADC, &reg_config) != HAL_OK)
++    {
++      goto _app_init_exit;
++    }
++
++    channel_config.group          = HAL_ADC_GROUP_REGULAR;
++    channel_config.input_mode     = HAL_ADC_IN_SINGLE_ENDED;
++    channel_config.sequencer_rank = 1;
++    channel_config.sampling_time  = PA4_SAMPLING_TIME;
++    if (HAL_ADC_SetConfigChannel(pADC, HAL_ADC_CHANNEL_4, &channel_config) != HAL_OK)
++    {
++      goto _app_init_exit;
++    }
++    channel_config.sequencer_rank = 2;
++    channel_config.sampling_time  = HAL_ADC_SAMPLING_TIME_289CYCLES;   /* VrefInt 至少 4.3 us（DS15135 表 21） */
++    if (HAL_ADC_SetConfigChannel(pADC, HAL_ADC_CHANNEL_VREFINT, &channel_config) != HAL_OK)
++    {
++      goto _app_init_exit;
++    }
++  }
++  PRINTF("[C5#31] PA4 sampling time code SMP4 = %" PRIu32 " (7 = 289 cycles)\n",
++         (uint32_t)((ADC1->SMPR1 & ADC_SMPR1_SMP4_Msk) >> ADC_SMPR1_SMP4_Pos));
++
+   /** ########## Step 2 ##########
+     * Performs the ADC activation and self calibration to improve measurements accuracy.
+     * The calibration is a prerequisite to any ADC operation. It removes the systematic errors that
+@@ -93,40 +149,75 @@
+ app_status_t app_process(void)
+ {
+   app_status_t return_status = EXEC_STATUS_ERROR;
++  uint32_t sum_pa4 = 0U;
++  uint32_t sum_vrefint = 0U;
++  uint16_t pa4_min = 0xFFFFU;
++  uint16_t pa4_max = 0U;
+ 
+   /** ########## Step 3 ##########
+-    * Starts the ADC conversion in interrupt mode
+-    */
+-  AdcConversionComplete = 0;
+-  if (HAL_ADC_REG_StartConv_IT(pADC) != HAL_OK)
+-  {
+-    goto _app_process_exit;
+-  }
+-
+-  PRINTF("[INFO] Step 3: ADC start conversion COMPLETED.\n");
+-
+-  /** Awaiting the Step 4 ADC completion (or error): asynchronous ADC interrupt callback.
+-    * Print the results: the raw ADC value and the computed corresponding voltage.
+-    * For this example purpose, we poll for the callback flag
+-    * but thanks to interrupt mode, application can do other things instead of polling.
+-    */
+-  while ((AdcConversionComplete != 1U) && (AdcError != 1U))
+-  {
+-    /** Put the CPU in Wait For Interrupt state. An ADC interrupt or a SystTick interrupt can wake up the CPU.
+-      * @user: This process is used to illustrate the interest of the interrupt mode.
+-      *        It can be replaced by your own code.
++    * 连续转换 NB_SAMPLES 次序列（PA4、VrefInt），每次都在中断模式下启动、等第 2 个 EOC 回调。
++    */
++  for (uint32_t n = 0U; n < NB_SAMPLES; n++)
++  {
++    uint32_t t0 = HAL_GetTick();
++
++    g_rank_idx = 0U;
++    AdcConversionComplete = 0U;
++    if (HAL_ADC_REG_StartConv_IT(pADC) != HAL_OK)
++    {
++      goto _app_process_exit;
++    }
++
++    /** Awaiting the ADC completion (or error): asynchronous ADC interrupt callback.
++      * An ADC interrupt or a SysTick interrupt can wake up the CPU from __WFI(); SysTick also drives the time out.
+       */
+-    __WFI();
+-  }
+-
+-  if (AdcError == 1U)
+-  {
+-    PRINTF("[ERROR] Step 4: ADC Error detected \n");
+-    goto _app_process_exit;
+-  }
+-
+-  PRINTF("[INFO] Step 4: ADC conversion DONE.  Raw ADC value = 0x%" PRIx16 "   Voltage = %" PRId16 " mV  \n", \
+-         AdcRawData, AdcMilliVolt);
++    while ((AdcConversionComplete != 1U) && (AdcError != 1U))
++    {
++      if ((HAL_GetTick() - t0) > TIME_OUT_MS)
++      {
++        PRINTF("[ERROR] Step 4: ADC time out \n");
++        goto _app_process_exit;
++      }
++      __WFI();
++    }
++
++    if (AdcError == 1U)
++    {
++      PRINTF("[ERROR] Step 4: ADC Error detected \n");
++      goto _app_process_exit;
++    }
++
++    sum_pa4 += g_raw[0];
++    sum_vrefint += g_raw[1];
++    if (g_raw[0] < pa4_min)
++    {
++      pa4_min = g_raw[0];
++    }
++    if (g_raw[0] > pa4_max)
++    {
++      pa4_max = g_raw[0];
++    }
++  }
++
++  /** ########## Step 4 ##########
++    * 平均值（四舍五入）、实测 VREF+、PA4 电压。
++    */
++  g_pa4_avg = (uint16_t)((sum_pa4 + (NB_SAMPLES / 2U)) / NB_SAMPLES);
++  g_pa4_min = pa4_min;
++  g_pa4_max = pa4_max;
++  g_vrefint_avg = (uint16_t)((sum_vrefint + (NB_SAMPLES / 2U)) / NB_SAMPLES);
++  if (g_vrefint_avg == 0U)
++  {
++    goto _app_process_exit;   /* 防止下面除以 0 */
++  }
++  g_vrefplus_mv = HAL_ADC_CALC_VREFANALOG_VOLTAGE(g_vrefint_avg, HAL_ADC_RESOLUTION_12_BIT);
++  g_pa4_mv = HAL_ADC_CALC_DATA_TO_VOLTAGE(g_vrefplus_mv, g_pa4_avg, HAL_ADC_RESOLUTION_12_BIT);
++  g_pa4_mv_assumed = HAL_ADC_CALC_DATA_TO_VOLTAGE(VREFPLUS_APPLI, g_pa4_avg, HAL_ADC_RESOLUTION_12_BIT);
++
++  PRINTF("[C5#31] PA4 raw avg %" PRIu16 " min %" PRIu16 " max %" PRIu16 " (p-p %" PRIu16 "); VrefInt raw avg %" PRIu16
++         "; VREF+ %" PRIu32 " mV; PA4 %" PRIu32 " mV (assumed 3300: %" PRIu32 " mV)\n",
++         g_pa4_avg, g_pa4_min, g_pa4_max, (uint16_t)(g_pa4_max - g_pa4_min), g_vrefint_avg,
++         g_vrefplus_mv, g_pa4_mv, g_pa4_mv_assumed);
+ 
+   return_status = EXEC_STATUS_OK;
+ 
+@@ -154,14 +245,20 @@
+   */
+ static void AdcConvCpltCallback(hal_adc_handle_t *hADC)
+ {
+-  /* Retrieve the ADC conversion data */
+-  AdcRawData = HAL_ADC_REG_ReadConversionData(pADC);
+-
+-  /* Compute the ADC conversion raw data to physical values using the proper helper macro. */
+-  AdcMilliVolt = HAL_ADC_CALC_DATA_TO_VOLTAGE(VREFPLUS_APPLI, AdcRawData, HAL_ADC_RESOLUTION_12_BIT);
+-
+-  /* Update the status variable of the ADC unitary conversion */
+-  AdcConversionComplete = 1U;
++  /* 序列里每转完一个通道进来一次：先读 ADC_DR（读 DR 才会弹出 FIFO 的一级），再按顺序放进数组 */
++  uint16_t data = HAL_ADC_REG_ReadConversionData(pADC);
++
++  if (g_rank_idx < 2U)
++  {
++    g_raw[g_rank_idx] = data;
++    g_rank_idx++;
++  }
++
++  /* 第 2 个结果到手，说明整个序列结束，可以安排下一次启动 */
++  if (g_rank_idx == 2U)
++  {
++    AdcConversionComplete = 1U;
++  }
+ }
+ 
+ 

@@ -1,0 +1,14 @@
+[
+  {
+    "file": "example.c",
+    "official_path": "examples/parts/w25q128j/read_write/application/example.c",
+    "diff": "example_c_改动.diff",
+    "sha256": "e3b1e26d110506c08700fee32cc3c87ce330af7579696d24c8602b55d255bc8d"
+  },
+  {
+    "file": "flags.cmake",
+    "official_path": "examples/parts/w25q128j/read_write/NUCLEO-C542RC/cmake/cmake/flags.cmake",
+    "diff": "flags_cmake_改动.diff",
+    "sha256": "b8f4edb167c0a84b4a12bd03548653541741f3d0b12802b8949ab0ca7b2f10c5"
+  }
+]

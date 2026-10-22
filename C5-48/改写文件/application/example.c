@@ -1,0 +1,445 @@
+/**
+  ******************************************************************************
+  * file           : example.c
+  * brief          : C5 #48 项目三：低功耗 RTC 记录仪——状态机（记录 / 命令）与命令解析。
+  *                  基线：官方 hal/adc/single_conversion_trigger_sw_it，经 #46 修正版工程扩展；
+  *                  需求与验收：#47 F01～F10、R47-01～16。
+  *                  记录模式：Stop1 睡着 → RTC 唤醒 → 喂狗、采样、写一条 → 再睡；串口来字符 → 命令模式。
+  *                  命令模式：144 MHz，串口命令；RTC 到期照常记录；60 s 无命令或 SLEEP → 回记录模式。
+  ******************************************************************************
+  *
+  * Copyright (c) 2026 STMicroelectronics.
+  * All rights reserved.
+  *
+  * This software is licensed under terms that can be found in the LICENSE file
+  * in the root directory of this software component.
+  * If no LICENSE file comes with this software, it is provided AS-IS.
+  *
+  ******************************************************************************
+  */
+
+/* Includes ------------------------------------------------------------------*/
+#include <string.h>
+#include "p48.h"
+
+/* Private define ------------------------------------------------------------*/
+#if defined(P48_TEST) && (P48_TEST != 0)
+#define P48_FW_NAME   "c5-48 v1 TEST"
+#else
+#define P48_FW_NAME   "c5-48 v1"
+#endif /* P48_TEST */
+
+/* Private typedef -----------------------------------------------------------*/
+typedef enum
+{
+  P48_MODE_LOG = 0,    /* 记录：没事就进 Stop1 */
+  P48_MODE_CMD         /* 命令：串口可用，不睡 */
+} p48_mode_t;
+
+typedef struct
+{
+  p48_mode_t mode;
+  uint32_t   period_s;
+  uint8_t    time_ok;       /* RTC 时钟链就绪 */
+  uint16_t   temp_raw;      /* 最近一次采样 */
+  uint16_t   vref_raw;
+  uint8_t    have_sample;
+  uint32_t   adc_errors;
+  uint32_t   records;       /* 本次上电以来写入的条数 */
+} p48_app_t;
+
+/* Private variables ---------------------------------------------------------*/
+p48_app_t g_app;            /* 全局：调试器可直接查看 */
+
+static uint32_t s_last_cmd_ms;
+static char     s_line[P48_LINE_MAX + 1U];
+static char     s_out[P48_OUT_MAX];
+
+/* Private functions prototype -----------------------------------------------*/
+static void app_record(void);
+static void app_enter_cmd(void);
+static void app_enter_log(void);
+static void app_command(const char *p_line);
+
+app_status_t app_init(void)
+{
+  int32_t rc;
+
+  health_capture_reset();
+  led_off(MX_STATUS_LED);
+  if ((term_init() != 0) || (sense_init() != 0))
+  {
+    return EXEC_STATUS_ERROR;
+  }
+  g_app.time_ok = (time_init() == 0) ? 1U : 0U;
+  g_app.period_s = time_period_load();
+  rc = log_init();
+  if (rc != 0)
+  {
+    return EXEC_STATUS_ERROR;
+  }
+  power_init();
+
+  (void)snprintf(s_out, sizeof(s_out),
+                 "BOOT %s reset=%s rec=%" PRIu32 " last=%" PRIu32 " bad=%" PRIu32 " ecc=%" PRIu32 " pages=%u period=%" PRIu32
+                 " time=%s\r\n",
+                 P48_FW_NAME, health_reset_name(), g_log.valid, g_log.last_seq, g_log.bad, g_log.ecc,
+                 (unsigned int)P48_LOG_PAGES, g_app.period_s,
+                 (g_app.time_ok == 0U) ? "NORTC" : ((time_valid() != 0U) ? "VALID" : "UNSET"));
+  term_write(s_out);
+
+  if ((health_start() != 0) || ((g_app.time_ok != 0U) && (time_wakeup_start(g_app.period_s) != 0)))
+  {
+    return EXEC_STATUS_ERROR;
+  }
+  app_enter_cmd();            /* 上电先留 60 s 命令窗口，便于校时和查看；无操作自动去记录 */
+  return EXEC_STATUS_INIT_OK;
+} /* end app_init */
+
+app_status_t app_process(void)
+{
+  health_feed();
+  if (g_rtc_wake != 0U)
+  {
+    g_rtc_wake = 0U;
+    app_record();
+  }
+
+  if (g_app.mode == P48_MODE_CMD)
+  {
+    p48_line_t line = term_poll_line(s_line);
+
+    if (line == P48_LINE_READY)
+    {
+      s_last_cmd_ms = HAL_GetTick();
+      app_command(s_line);
+    }
+    else if (line == P48_LINE_TOO_LONG)
+    {
+      s_last_cmd_ms = HAL_GetTick();
+      term_write("ERR LONG\r\n");
+    }
+    if ((g_app.mode == P48_MODE_CMD) && ((HAL_GetTick() - s_last_cmd_ms) >= P48_CONSOLE_IDLE_MS))
+    {
+      term_write("OK SLEEP idle\r\n");
+      app_enter_log();
+    }
+  }
+  else if (g_console_wake != 0U)
+  {
+    g_console_wake = 0U;
+    app_enter_cmd();
+  }
+  else
+  {
+    power_mark_awake_end();
+    power_sleep();            /* 醒来后从这里返回，下一轮处理标志 */
+  }
+  return EXEC_STATUS_OK;
+} /* end app_process */
+
+/** In this project, app_deinit is never called and it is provided as a reference only. */
+app_status_t app_deinit(void)
+{
+  mx_example_adc_deinit();
+  return EXEC_STATUS_OK;
+} /* end app_deinit */
+
+/* 采一次、写一条。记录模式下运行在 48 MHz，命令模式下运行在 144 MHz（ADC 分频随之调整） */
+static void app_record(void)
+{
+  p48_datetime_t dt;
+  uint32_t secs = P48_TIME_INVALID;
+  uint32_t flags = 0U;
+
+  if (sense_sample(&g_app.temp_raw, &g_app.vref_raw) == 0)
+  {
+    g_app.have_sample = 1U;
+  }
+  else
+  {
+    g_app.adc_errors++;
+    flags |= P48_FLAG_ADC_ERR;
+  }
+  if (time_get(&dt) == 0)
+  {
+    secs = time_to_secs(&dt);
+    flags |= P48_FLAG_TIME_VALID;
+  }
+  if (g_app.mode == P48_MODE_CMD)
+  {
+    flags |= P48_FLAG_CONSOLE;
+  }
+  if (log_append(secs, flags | ((uint32_t)(g_app.vref_raw & 0xFFFU) << 12) | (g_app.temp_raw & 0xFFFU)) == 0)
+  {
+    g_app.records++;
+  }
+}
+
+static void app_enter_cmd(void)
+{
+  power_cancel_awake();
+  if (SystemCoreClock < 100000000UL)
+  {
+    (void)power_console_clock();   /* 从 Stop 醒来是 48 MHz，串口波特率按 144 MHz 设，先恢复 */
+  }
+  term_rx_enable();
+  led_on(MX_STATUS_LED);           /* 命令模式点亮 LD1，记录模式熄灭 */
+  g_app.mode = P48_MODE_CMD;
+  s_last_cmd_ms = HAL_GetTick();
+  term_write("READY\r\n");
+}
+
+static void app_enter_log(void)
+{
+  term_flush();                    /* 回复发完再关串口、睡觉 */
+  term_rx_disable();
+  led_off(MX_STATUS_LED);
+  g_app.mode = P48_MODE_LOG;
+}
+
+/* ---- 命令 ---- */
+
+static uint8_t parse_uint(const char *p, uint32_t *p_value)
+{
+  uint32_t v = 0U;
+  uint32_t n = 0U;
+
+  while ((*p >= '0') && (*p <= '9') && (n < 6U))
+  {
+    v = (v * 10U) + (uint32_t)(*p - '0');
+    p++;
+    n++;
+  }
+  if ((n == 0U) || (*p != '\0'))
+  {
+    return 0U;
+  }
+  *p_value = v;
+  return 1U;
+}
+
+static uint8_t parse_fixed(const char *p, uint32_t width, uint32_t *p_value)
+{
+  uint32_t value = 0U;
+
+  for (uint32_t i = 0U; i < width; i++)
+  {
+    if ((p[i] < '0') || (p[i] > '9'))
+    {
+      return 0U;
+    }
+    value = (value * 10U) + (uint32_t)(p[i] - '0');
+  }
+  *p_value = value;
+  return 1U;
+}
+
+static void fmt_time(uint32_t secs, char *p_buf, uint32_t size)
+{
+  p48_datetime_t dt;
+
+  if (secs == P48_TIME_INVALID)
+  {
+    (void)snprintf(p_buf, size, "NA");
+    return;
+  }
+  time_from_secs(secs, &dt);
+  (void)snprintf(p_buf, size, "%04u-%02u-%02uT%02u:%02u:%02u", (unsigned int)dt.year, (unsigned int)dt.mon,
+                 (unsigned int)dt.mday, (unsigned int)dt.hour, (unsigned int)dt.min, (unsigned int)dt.sec);
+}
+
+static void cmd_status(void)
+{
+  char tim[32];
+  char temp[16];
+  p48_datetime_t dt;
+
+  if (time_get(&dt) == 0)
+  {
+    fmt_time(time_to_secs(&dt), tim, sizeof(tim));
+  }
+  else
+  {
+    (void)snprintf(tim, sizeof(tim), "UNSET");
+  }
+  if (g_app.have_sample != 0U)
+  {
+    int32_t t = sense_temp_x10(g_app.temp_raw, g_app.vref_raw);
+
+    (void)snprintf(temp, sizeof(temp), "%s%ld.%ld", (t < 0) ? "-" : "", (long)((t < 0) ? -t : t) / 10,
+                   (long)((t < 0) ? -t : t) % 10);
+  }
+  else
+  {
+    (void)snprintf(temp, sizeof(temp), "NA");
+  }
+  (void)snprintf(s_out, sizeof(s_out),
+                 "STATUS period=%" PRIu32 " rec=%" PRIu32 " last=%" PRIu32 " next=%" PRIu32 " bad=%" PRIu32 " ecc=%" PRIu32
+                 " erases=%" PRIu32 " werr=%" PRIu32 " time=%s temp=%s vdda=%" PRIu32 " adcerr=%" PRIu32 " wakes=%" PRIu32
+                 " awake_us=%" PRIu32 "/%" PRIu32 " reset=%s\r\n",
+                 g_app.period_s, g_log.valid, g_log.last_seq, g_log.next_slot, g_log.bad, g_log.ecc, g_log.erases,
+                 g_log.write_errors, tim, temp, (g_app.have_sample != 0U) ? sense_vdda_mv(g_app.vref_raw) : 0U,
+                 g_app.adc_errors, g_wakes, g_awake_us_last, g_awake_us_max, health_reset_name());
+  term_write(s_out);
+}
+
+/* 导出最近 n 条（缺省全部）：序号,时间,温度x10,VDDA_mV,标志。发送环放不下就等，等的时候照常喂狗 */
+static void cmd_dump(uint32_t n)
+{
+  p48_rec_t rec;
+  char tim[32];
+  uint32_t total = g_log.valid;
+  uint32_t sent = 0U;
+
+  if (n > total)
+  {
+    n = total;
+  }
+  term_write("seq,time,temp_x10,vdda_mv,flags\r\n");
+  log_iter_begin(total - n);
+  while ((sent < n) && (log_iter_next(&rec) != 0U))
+  {
+    uint16_t traw = (uint16_t)(rec.data & 0xFFFU);
+    uint16_t vraw = (uint16_t)((rec.data >> 12) & 0xFFFU);
+    int len;
+
+    fmt_time(rec.time, tim, sizeof(tim));
+    len = snprintf(s_out, sizeof(s_out), "%" PRIu32 ",%s,%ld,%" PRIu32 ",0x%02" PRIX32 "\r\n", rec.seq, tim,
+                   (long)sense_temp_x10(traw, vraw), sense_vdda_mv(vraw), rec.data >> 24);
+    while (term_tx_free() < (uint32_t)len)
+    {
+      health_feed();
+    }
+    term_write(s_out);
+    sent++;
+  }
+  (void)snprintf(s_out, sizeof(s_out), "OK DUMP %" PRIu32 "\r\n", sent);
+  term_write(s_out);
+}
+
+static void cmd_time(const char *p_args)
+{
+  p48_datetime_t dt;
+  uint32_t y;
+  uint32_t mo;
+  uint32_t d;
+  uint32_t h;
+  uint32_t mi;
+  uint32_t s;
+
+  if ((strlen(p_args) != 20U) || (p_args[0] != ' ') || (p_args[5] != '-') || (p_args[8] != '-')
+      || (p_args[11] != ' ') || (p_args[14] != ':') || (p_args[17] != ':')
+      || (parse_fixed(&p_args[1], 4U, &y) == 0U) || (parse_fixed(&p_args[6], 2U, &mo) == 0U)
+      || (parse_fixed(&p_args[9], 2U, &d) == 0U) || (parse_fixed(&p_args[12], 2U, &h) == 0U)
+      || (parse_fixed(&p_args[15], 2U, &mi) == 0U) || (parse_fixed(&p_args[18], 2U, &s) == 0U))
+  {
+    term_write("ERR FORMAT\r\n");
+    return;
+  }
+  dt.year = (uint16_t)y;
+  dt.mon = (uint8_t)mo;
+  dt.mday = (uint8_t)d;
+  dt.hour = (uint8_t)h;
+  dt.min = (uint8_t)mi;
+  dt.sec = (uint8_t)s;
+  if (time_is_legal(&dt) == 0U)
+  {
+    term_write("ERR RANGE\r\n");
+    return;
+  }
+  term_write((time_set(&dt) == 0) ? "OK TIME\r\n" : "ERR RTC\r\n");
+}
+
+static void cmd_period(const char *p_args)
+{
+  uint32_t v;
+
+  if ((p_args[0] != ' ') || (parse_uint(&p_args[1], &v) == 0U))
+  {
+    term_write("ERR FORMAT\r\n");
+    return;
+  }
+  if ((v < P48_PERIOD_MIN_S) || (v > P48_PERIOD_MAX_S))
+  {
+    term_write("ERR RANGE\r\n");
+    return;
+  }
+  if (time_wakeup_start(v) != 0)
+  {
+    term_write("ERR RTC\r\n");
+    return;
+  }
+  g_app.period_s = v;
+  time_period_store(v);
+  (void)snprintf(s_out, sizeof(s_out), "OK PERIOD %" PRIu32 "\r\n", v);
+  term_write(s_out);
+}
+
+static void app_command(const char *p_line)
+{
+  uint32_t n;
+
+  if (strcmp(p_line, "HELP") == 0)
+  {
+    term_write("OK HELP STATUS DUMP TIME PERIOD CLEAR SLEEP\r\n");
+  }
+  else if (strcmp(p_line, "STATUS") == 0)
+  {
+    cmd_status();
+  }
+  else if (strcmp(p_line, "DUMP") == 0)
+  {
+    cmd_dump(g_log.valid);
+  }
+  else if (strncmp(p_line, "DUMP ", 5U) == 0)
+  {
+    if (parse_uint(&p_line[5], &n) == 0U)
+    {
+      term_write("ERR FORMAT\r\n");
+    }
+    else
+    {
+      cmd_dump(n);
+    }
+  }
+  else if ((strncmp(p_line, "TIME", 4U) == 0) && ((p_line[4] == ' ') || (p_line[4] == '\0')))
+  {
+    cmd_time(&p_line[4]);
+  }
+  else if ((strncmp(p_line, "PERIOD", 6U) == 0) && ((p_line[6] == ' ') || (p_line[6] == '\0')))
+  {
+    cmd_period(&p_line[6]);
+  }
+  else if (strcmp(p_line, "CLEAR YES") == 0)
+  {
+    term_write((log_clear() == 0) ? "OK CLEAR\r\n" : "ERR FLASH\r\n");
+  }
+  else if (strncmp(p_line, "CLEAR", 5U) == 0)
+  {
+    term_write("ERR CONFIRM\r\n");   /* 擦 16 页不可恢复，必须带 YES */
+  }
+  else if (strcmp(p_line, "SLEEP") == 0)
+  {
+    term_write("OK SLEEP\r\n");
+    app_enter_log();
+  }
+#if defined(P48_TEST) && (P48_TEST != 0)
+  else if (strcmp(p_line, "T HANG") == 0)
+  {
+    term_write("OK T HANG\r\n");
+    while (1)
+    {
+      /* 不再喂狗，等 IWDG（约 114～134 s）复位 */
+    }
+  }
+  else if (strcmp(p_line, "T CORRUPT") == 0)
+  {
+    term_write((log_test_corrupt() == 0) ? "OK T CORRUPT\r\n" : "ERR FLASH\r\n");
+  }
+#endif /* P48_TEST */
+  else
+  {
+    term_write("ERR CMD\r\n");
+  }
+}

@@ -1,0 +1,184 @@
+--- sdk_ref/examples/middleware/usbx/device_hid_mouse_no_os/NUCLEO-C542RC/generated/middleware/usbx/mx_usbx_device_hid_mouse.c
++++ sdk_mod/examples/middleware/usbx/device_hid_mouse_no_os/NUCLEO-C542RC/generated/middleware/usbx/mx_usbx_device_hid_mouse.c
+@@ -17,12 +17,18 @@
+ 
+ /* Includes ------------------------------------------------------------------*/
+ #include "mx_usbx_device_hid_mouse.h"
++#include "mx_led.h"
+ /* Private typedef -----------------------------------------------------------*/
+ /* Private define ------------------------------------------------------------*/
+ #define CURSOR_STEP     10
+ /* Private macro -------------------------------------------------------------*/
+ /* Private variables ---------------------------------------------------------*/
+-UX_SLAVE_CLASS_HID      *p_hid_mouse;
++UX_SLAVE_CLASS_HID *p_hid_mouse;
++volatile uint32_t g_configured, g_activations, g_deactivations;
++volatile uint32_t g_queued, g_queue_fail, g_ignored, g_step;
++volatile UINT g_queue_status;
++volatile int32_t g_x, g_y;
++volatile UCHAR g_last_report[4];
+ extern volatile uint8_t ButtonState;
+ UCHAR usbd_hid_mouse_report_descriptor[] =
+ {
+@@ -49,7 +55,7 @@
+   0x05U, 0x01U, /* Usage Page (Generic Desktop) */
+   0x09U, 0x30U, /* Usage (X) */
+   0x09U, 0x31U, /* Usage (Y) */
+-  0x09U, 0x38U, /* Usage (Z) */
++  0x09U, 0x38U, /* Usage (Wheel), 0x38; descriptor bytes unchanged */
+ 
+   0x15U, 0x81U, /* Logical Minimum (-127) */
+   0x25U, 0x7FU, /* Logical Maximum (127) */
+@@ -69,13 +75,12 @@
+   */
+ VOID usbd_hid_mouse_activate(VOID *hid_instance)
+ {
+-  /* Save the HID mouse instance */
+-  if (p_hid_mouse == UX_NULL)
+-  {
+-    p_hid_mouse = (UX_SLAVE_CLASS_HID *) hid_instance;
+-  }
+-
+-  return;
++  p_hid_mouse = (UX_SLAVE_CLASS_HID *)hid_instance;
++  ButtonState = 0U;
++  g_step = 0U;
++  g_configured = 1U;
++  g_activations++;
++  led_on(MX_STATUS_LED); /* 类激活标记，不能替代主机枚举/报告检查。 */
+ }
+ 
+ /**
+@@ -86,13 +91,15 @@
+   */
+ VOID usbd_hid_mouse_deactivate(VOID *hid_instance)
+ {
+-  /* Reset the HID mouse instance */
+   if (p_hid_mouse == hid_instance)
+   {
+     p_hid_mouse = UX_NULL;
+-  }
+-
+-  return;
++    ButtonState = 0U;
++    g_configured = 0U;
++    g_deactivations++;
++    g_step = 0U;
++    led_off(MX_STATUS_LED);
++  }
+ }
+ 
+ /**
+@@ -168,24 +175,31 @@
+ VOID usbd_hid_mouse_process(VOID)
+ {
+   UX_SLAVE_CLASS_HID_EVENT hid_event;
+-
+-  /* Check if the device state already configured */
+-  if (p_hid_mouse != UX_NULL)
+-  {
+-    ux_utility_memory_set(&hid_event, 0, sizeof(UX_SLAVE_CLASS_HID_EVENT));
+-
+-    /* Check if user button is pressed */
+-    if (ButtonState != 0U)
+-    {
+-      /* Get the new position */
+-      usbd_hid_mouse_get_pointer_data(&hid_event);
+-
+-      /* Send an event to the hid */
+-      ux_device_class_hid_event_set(p_hid_mouse, &hid_event);
+-
+-      /* Reset User Button state */
+-      ButtonState = 0U;
+-    }
++  uint32_t flags = __get_PRIMASK();
++  __disable_irq();
++  uint8_t pressed = ButtonState;
++  ButtonState = 0U;
++  __set_PRIMASK(flags);
++  if (pressed == 0U)
++  {
++    return;
++  }
++  if (p_hid_mouse == UX_NULL)
++  {
++    g_ignored++;
++    return;
++  }
++  ux_utility_memory_set(&hid_event, 0, sizeof(hid_event));
++  usbd_hid_mouse_get_pointer_data(&hid_event);
++  g_queue_status = ux_device_class_hid_event_set(p_hid_mouse, &hid_event);
++  if (g_queue_status == UX_SUCCESS)
++  {
++    g_queued++; /* 只统计入队，不冒充主机已收到。 */
++    g_step = (g_step + 1U) % 16U;
++  }
++  else
++  {
++    g_queue_fail++; /* 记录失败，不推进方向，不自动重放按键。 */
+   }
+ }
+ 
+@@ -196,43 +210,22 @@
+   */
+ static VOID usbd_hid_mouse_get_pointer_data(UX_SLAVE_CLASS_HID_EVENT *p_hid_event)
+ {
+-  static int8_t counter = 0;
+-  static int8_t x = 0, y = 0;
+-
+-  /* Reset counter */
+-  if (counter == 16)
+-  {
+-    counter = 0;
+-  }
+-  /* Update pointer position x and y */
+-  if ((counter >= 0) && (counter < 4))
+-  {
+-    y = 0;
+-    x = CURSOR_STEP;
+-  }
+-  else if ((counter >= 4) && (counter < 8))
+-  {
+-    x = 0;
+-    y = CURSOR_STEP;
+-  }
+-  else if ((counter >= 8) && (counter < 12))
+-  {
+-    y = 0;
+-    x = -CURSOR_STEP;
+-  }
+-  else
+-  {
+-    x = 0;
+-    y = -CURSOR_STEP;
+-  }
+-
+-  /* Increment counter */
+-  counter++;
+-
+-  /* Mouse event. Length is fixed to 4 */
+-  p_hid_event->ux_device_class_hid_event_length = 4;
+-  p_hid_event->ux_device_class_hid_event_buffer[0] = 0;
+-  p_hid_event->ux_device_class_hid_event_buffer[1] = x;
+-  p_hid_event->ux_device_class_hid_event_buffer[2] = y;
+-  p_hid_event->ux_device_class_hid_event_buffer[3] = 0;
+-}
++  g_x = 0;
++  g_y = 0;
++  switch (g_step / 4U)
++  {
++    case 0U: g_x = CURSOR_STEP; break;
++    case 1U: g_y = CURSOR_STEP; break;
++    case 2U: g_x = -CURSOR_STEP; break;
++    default: g_y = -CURSOR_STEP; break;
++  }
++  p_hid_event->ux_device_class_hid_event_length = 4U;
++  p_hid_event->ux_device_class_hid_event_buffer[0] = 0U;
++  p_hid_event->ux_device_class_hid_event_buffer[1] = (UCHAR)(int8_t)g_x;
++  p_hid_event->ux_device_class_hid_event_buffer[2] = (UCHAR)(int8_t)g_y;
++  p_hid_event->ux_device_class_hid_event_buffer[3] = 0U;
++  for (uint32_t i = 0U; i < 4U; i++)
++  {
++    g_last_report[i] = p_hid_event->ux_device_class_hid_event_buffer[i];
++  }
++}

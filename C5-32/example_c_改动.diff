@@ -1,0 +1,231 @@
+--- official/ll/adc/multi_channels_dma/application/example.c
++++ c5_32/ll/adc/multi_channels_dma/application/example.c
+@@ -20,15 +20,43 @@
+ 
+ /* Private typedef -----------------------------------------------------------*/
+ /* Private define ------------------------------------------------------------*/
++/* C5 #32 改写（相对官方 ll/adc/multi_channels_dma），改动只在 application 目录，生成代码不动：
++ * 1. 溢出模式改为"保留"（OVRMOD = 0）。官方是"覆盖"，RM0522 第 598 页写明 DMA 下覆盖会让 DMA 漏数据，
++ *    缓冲区下标与通道的对应关系就会错位；保留模式下溢出时 ADC 停发 DMA 请求，已搬进内存的数据全部有效。
++ * 2. 改为连续转换 + DMA 单次：一次启动读 ADC_SCANS 轮，DMA 传完最后一个数据后 ADC 与 DMA 一起停止（RM 第 599 页）。
++ * 3. ADC/DAC 内核时钟分频由 4 改为 8（36 MHz → 18 MHz）：温度传感器采样 289 周期 = 16.06 µs，满足不少于 13 µs（同 #30）。
++ * 4. 启动前缓冲区填哨兵 ADC_SENTINEL，传完后数还有几个槽没被写；缓冲区声明为 volatile（见 ll_example.h）。
++ * 5. 温度改用 int32_t（官方用 uint16_t，负温度会出错）；VREF+ 用 VrefInt 实测，同时按官方假设的 3300 mV 再算一次作对照。
++ * 6. 启动 ADC_PEEK_US 微秒后偷看一次缓冲区：演示 DMA 还在写的时候读它，读到的是什么。
++ * 7. 等待 DMA 传完改为 DWT 计时的轮询加 ADC_TIMEOUT_MS 超时。本例 SysTick 没开中断（LL_Init1msTick 只置 CLKSOURCE 和 ENABLE），
++ *    __WFI 只有 ADC、LPDMA 的中断能唤醒，超时靠不上它；超时返回错误，main 会进入 LED 闪烁（50 ms 亮、2 s 灭）。
++ * 本例没有串口：结果全放在下面的全局变量里，用调试器的 Watch 窗口看。
++ */
++#define ADC_PEEK_US     400U   /* 启动后多久偷看缓冲区 */
++#define ADC_TIMEOUT_MS  20U    /* 整次转换理论上约 0.8 ms，超时只是兜底 */
++
+ /* Private macro -------------------------------------------------------------*/
+ /* Private variables ---------------------------------------------------------*/
+-/* Variables for ADC conversion data computation to physical values */
+-/* Value of voltage calculated from ADC conversion data (unit: mV) */
+-volatile uint16_t GPIO_mV              = 0U;
+-/* Value of internal voltage reference VrefInt calculated from ADC conversion data (unit: mV) */
+-volatile uint16_t VrefInt_mV           = 0U;
+-/* Value of temperature calculated from ADC conversion data (unit: degree Celsius) */
+-volatile uint16_t Temperature_DegC     = 0U;
++/* 序列位次：[0] PA4，[1] VrefInt，[2] 温度传感器（与 mx_adc1.c 里 rank 1、2、3 一一对应） */
++uint16_t g_raw_avg[ADC_RANKS];     /* 每个通道 ADC_SCANS 次的平均（计数） */
++uint16_t g_raw_min[ADC_RANKS];
++uint16_t g_raw_max[ADC_RANKS];
++uint32_t g_vrefplus_mv;            /* 由 VrefInt 平均值求出的 VREF+（mV） */
++uint32_t g_pa4_mv;                 /* PA4 电压（mV），按实测 VREF+ 换算 */
++uint32_t g_pa4_mv_assumed;         /* PA4 电压（mV），按官方假设的 3300 mV 换算，用来对照 */
++int32_t  g_temp_degc;              /* 温度（°C），按实测 VREF+ 换算 */
++int32_t  g_temp_degc_assumed;      /* 温度（°C），按官方假设的 3300 mV 换算 */
++
++/* 验证 DMA 与 ADC 行为的观测量，都待上板读取 */
++uint32_t g_unwritten;              /* 传完后仍是哨兵的槽数，预期 0 */
++uint32_t g_peek_written;           /* 启动 ADC_PEEK_US 后已被 DMA 写过的槽数 */
++uint32_t g_dma_remain;             /* 传完时 DMA 剩余字节数（BNDT），预期 0 */
++uint32_t g_adstart_after;          /* 传完时 ADSTART 位，RM 没明说，待实测 */
++uint32_t g_ovr_after;              /* 传完时 OVR 标志，预期 0 */
++uint32_t g_run_cycles;             /* 启动到传输完成中断的 CPU 周期数（DWT） */
++uint32_t g_rounds;                 /* 已完成的轮数 */
++
++static volatile uint32_t g_tc_stamp;           /* 传输完成中断里记下的 DWT 计数 */
+ /* Set to 1 if the ADC conversion is correctly completed */
+ volatile uint8_t ADCConversionComplete = 0U;
+ /* Set to 1 if a transmission or a reception error is detected */
+@@ -38,6 +66,7 @@
+ 
+ /* Private functions ---------------------------------------------------------*/
+ /* Private functions prototype -----------------------------------------------*/
++static uint32_t CountWritten(void);
+ 
+ app_status_t app_init(void)
+ {
+@@ -50,6 +79,17 @@
+   {
+     goto _app_init_exit;
+   }
++
++  /** C5 #32 改写 1～3：必须放在 ADC 使能之前。
++    * ADCDACPRE 使能后不得改（RM0522 第 316 页），CONT、OVRMOD 要求 ADSTART = 0（第 643 页）。
++    */
++  LL_RCC_SetADCDACPrescaler(LL_RCC_ADCDAC_PRESCALER_8);
++  LL_ADC_REG_SetOverrun(MX_ADCx, LL_ADC_REG_OVR_DATA_PRESERVED);
++  LL_ADC_REG_SetContinuousMode(MX_ADCx, LL_ADC_REG_CONV_CONTINUOUS);
++
++  DCB->DEMCR |= DCB_DEMCR_TRCENA_Msk;  /* DWT 周期计数器，用来量时间（#14） */
++  DWT->CYCCNT = 0U;
++  DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
+ 
+   /** ########## Step 2 ##########
+     * Performs the MX_ADCx activation and self calibration to improve measurements accuracy.
+@@ -75,39 +115,96 @@
+ 
+ app_status_t app_process(void)
+ {
+-  app_status_t return_status = EXEC_STATUS_OK;
++  uint32_t sum[ADC_RANKS] = {0U};
++  uint32_t scan;
++  uint32_t rank;
++  uint32_t t0;
++  uint32_t peek_cycles    = (SystemCoreClock / 1000000U) * ADC_PEEK_US;
++  uint32_t timeout_cycles = (SystemCoreClock / 1000U) * ADC_TIMEOUT_MS;
+ 
+   ADCConversionComplete = 0U;
+ 
+   /** ########## Step 3 ##########
+-    * Starts the MX_ADCx conversion in DMA mode.
+-    */
++    * 缓冲区填哨兵后启动 DMA 与 ADC。之后 ADC 连续转换，每个通道转换完成就由 DMA 搬一个半字，
++    * 缓冲区下标 = 轮数 × ADC_RANKS + 位次，一共搬 ADC_BUFFER_SIZE 个就停。
++    */
++  t0 = DWT->CYCCNT;
+   ADC_StartConversion_DMA();
+ 
+   /** ########## Step 4 ##########
+-    * Waits for one of these MX_ADCx interrupts: transfer complete or transfer error when USE_LL_APP_ERROR == 1.
+-    * - Retrieves GPIO voltage in mV from regular conversions.
+-    * - Retrieves Vref voltage in mV from regular conversions.
+-    * - Retrieves Temperature sensor in degC from regular conversions.
+-    */
+-
+-#if defined(USE_LL_APP_ERROR) && (USE_LL_APP_ERROR == 1)
+-  while ((ADCConversionComplete == 0) && (ADCConversionError == 0))
+-#else
+-  while (ADCConversionComplete == 0U)
+-#endif /* USE_LL_APP_ERROR */
+-  {
+-    /** Put the CPU in Wait For Interrupt state. A MX_ADCx interrupt or a SystTick interrupt can wake up the CPU.
+-      * @user: This process is used to illustrate the interest of the DMA. It can be replaced by your own code.
+-      */
+-    __WFI();
+-  }
+-
+-  GPIO_mV          = ADC_GetDataGPIOmV();
+-  VrefInt_mV       = ADC_GetDataVrefIntmV();
+-  Temperature_DegC = ADC_GetDataTemperatureDegC();
+-
+-  return return_status;
++    * 演示：DMA 还在写的时候读缓冲区，这里只数写过几个槽，读到的数据不使用。
++    */
++  while ((DWT->CYCCNT - t0) < peek_cycles)
++  {
++  }
++  g_peek_written = CountWritten();
++
++  /** ########## Step 5 ##########
++    * 等 LPDMA 传输完成中断（回调里置标志）；超时则放弃本轮。
++    */
++  while ((ADCConversionComplete == 0U) && ((DWT->CYCCNT - t0) < timeout_cycles))
++  {
++  }
++
++  /* 传完（或超时）的瞬间先记下 DMA 与 ADC 的状态，再收尾 */
++  g_dma_remain    = LL_DMA_GetBlkDataLength(MX_LPDMAX_CHY_CH);
++  g_adstart_after = LL_ADC_REG_IsConversionOngoing(MX_ADCx);
++  g_ovr_after     = LL_ADC_IsActiveFlag_OVR(MX_ADCx);
++  if (ADCConversionComplete == 0U)
++  {
++    return EXEC_STATUS_ERROR;
++  }
++  g_run_cycles = g_tc_stamp - t0;
++
++  /* 收尾：RM 只说传完后 ADC 与 DMA 停止；若 ADSTART 仍为 1，用 ADSTP 停掉，保证下一轮能重新启动 */
++  if (g_adstart_after != 0U)
++  {
++    LL_ADC_REG_StopConversion(MX_ADCx);
++    while ((LL_ADC_REG_IsStopConversionOngoing(MX_ADCx) != 0U) && ((DWT->CYCCNT - t0) < timeout_cycles))
++    {
++    }
++  }
++  LL_ADC_ClearFlag_OVR(MX_ADCx);
++
++  /** ########## Step 6 ##########
++    * 传完之后才读缓冲区：按 下标 = 轮数 × ADC_RANKS + 位次 分通道统计。
++    */
++  g_unwritten = ADC_BUFFER_SIZE - CountWritten();
++  for (rank = 0U; rank < ADC_RANKS; rank++)
++  {
++    g_raw_min[rank] = ADC_SENTINEL;
++    g_raw_max[rank] = 0U;
++  }
++  for (scan = 0U; scan < ADC_SCANS; scan++)
++  {
++    for (rank = 0U; rank < ADC_RANKS; rank++)
++    {
++      uint16_t v = ADCRawData[(scan * ADC_RANKS) + rank];
++      sum[rank] += v;
++      if (v < g_raw_min[rank])
++      {
++        g_raw_min[rank] = v;
++      }
++      if (v > g_raw_max[rank])
++      {
++        g_raw_max[rank] = v;
++      }
++    }
++  }
++  for (rank = 0U; rank < ADC_RANKS; rank++)
++  {
++    g_raw_avg[rank] = (uint16_t)((sum[rank] + (ADC_SCANS / 2U)) / ADC_SCANS);
++  }
++
++  g_vrefplus_mv       = LL_ADC_CALC_VREFANALOG_VOLTAGE(g_raw_avg[1], LL_ADC_RESOLUTION_12B);
++  g_pa4_mv            = LL_ADC_CALC_DATA_TO_VOLTAGE(g_vrefplus_mv, g_raw_avg[0], LL_ADC_RESOLUTION_12B);
++  g_pa4_mv_assumed    = LL_ADC_CALC_DATA_TO_VOLTAGE(VDD_VALUE, g_raw_avg[0], LL_ADC_RESOLUTION_12B);
++  g_temp_degc         = LL_ADC_CALC_TEMPERATURE(g_vrefplus_mv, g_raw_avg[2], LL_ADC_RESOLUTION_12B);
++  g_temp_degc_assumed = LL_ADC_CALC_TEMPERATURE(VDD_VALUE, g_raw_avg[2], LL_ADC_RESOLUTION_12B);
++  g_rounds++;
++
++  /* 传输完成了却还有槽没被写，说明缓冲区与 DMA 的约定被破坏，按错误处理 */
++  return (g_unwritten == 0U) ? EXEC_STATUS_OK : EXEC_STATUS_ERROR;
+ } /* end app_process */
+ 
+ 
+@@ -130,6 +227,7 @@
+ void ADC_ConversionCompleteCallback(void)
+ {
+   /* Asynchronous processing related to step 3 */
++  g_tc_stamp = DWT->CYCCNT;
+   ADCConversionComplete = 1U;
+ }
+ 
+@@ -145,3 +243,20 @@
+   ADCConversionError = 1U;
+ }
+ #endif /* USE_LL_APP_ERROR */
++
++
++/** 数缓冲区里已经被 DMA 写过的槽（值不是哨兵的） */
++static uint32_t CountWritten(void)
++{
++  uint32_t i;
++  uint32_t n = 0U;
++
++  for (i = 0U; i < ADC_BUFFER_SIZE; i++)
++  {
++    if (ADCRawData[i] != ADC_SENTINEL)
++    {
++      n++;
++    }
++  }
++  return n;
++}

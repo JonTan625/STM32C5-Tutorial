@@ -1,0 +1,213 @@
+/**
+  ******************************************************************************
+  * file           : p46_config.c
+  * brief          : C5 #46 阈值保存（F06）：主 Flash 最后一页 0x0803E000（8 KB），每次 SAVE 追加 16 字节记录。
+  *                  记录 = magic/version、序号、(high<<16)|low、CRC-32/MPEG-2（前 12 字节，小端内存顺序）。
+  *                  只在 STOP 写；读回校验通过才算成功；页满报 ERR FULL，不擦页、不回绕。
+  *                  写入写法沿用 #22（16 字节一次、写期间停 ICACHE，2026-10-14 上板核验）。
+  ******************************************************************************
+  */
+#include "p46.h"
+#include "mx_icache.h"
+
+#define P46_FLASH_TIMEOUT_MS  50U
+
+typedef struct
+{
+  uint32_t magic;
+  uint32_t seq;
+  uint32_t th;     /* bit15:0 = low，bit31:16 = high */
+  uint32_t crc;
+} p46_cfg_rec_t;
+
+_Static_assert(sizeof(p46_cfg_rec_t) == 16U, "one quad-word per record");
+_Static_assert((P46_CFG_SLOTS * 16U) <= 8192U, "records must fit in the last 8 KB page");
+
+p46_cfg_scan_t g_cfg_scan;
+
+static hal_flash_handle_t s_flash;
+static uint8_t  s_has_saved;
+static uint16_t s_saved_low;
+static uint16_t s_saved_high;
+
+/* NMI 里写、扫描时读；g_cfg_ecc_addr 供调试器查看第一次双错的 Flash 行号（ADDR_ECC） */
+static volatile uint32_t s_ecc_hits;
+volatile uint32_t g_cfg_ecc_addr;
+
+void NMI_Handler(void);
+
+uint32_t cfg_crc32_mpeg2(const uint8_t *p_data, uint32_t len)
+{
+  uint32_t crc = 0xFFFFFFFFUL;
+
+  for (uint32_t i = 0U; i < len; i++)
+  {
+    crc ^= (uint32_t)p_data[i] << 24;
+    for (uint32_t b = 0U; b < 8U; b++)
+    {
+      crc = ((crc & 0x80000000UL) != 0U) ? ((crc << 1) ^ 0x04C11DB7UL) : (crc << 1);
+    }
+  }
+  return crc;
+}
+
+/**
+  * 双 ECC 错误会产生 NMI（RM0522 §6.8.5 p169）；ECCD 写 1 清除（§6.10.31 p198），
+  * 且必须在 NMI 里让 ICACHE 失效（p169）。主 Flash 的这个 NMI 不能在 SBS 里屏蔽（屏蔽只对 OTP/数据区/RO）。
+  * 其它来源的 NMI（例如 HSE 时钟安全系统）不在本项目处理范围：停住等 IWDG 复位。
+  */
+void NMI_Handler(void)
+{
+  if ((FLASH->ECCDETR & FLASH_ECCDETR_ECCD) != 0U)
+  {
+    g_cfg_ecc_addr = FLASH->ECCDETR & FLASH_ECCDETR_ADDR_ECC;
+    FLASH->ECCDETR |= FLASH_ECCDETR_ECCD;
+    ICACHE->CR |= ICACHE_CR_CACHEINV;
+    s_ecc_hits++;
+    return;
+  }
+  while (1)
+  {
+  }
+}
+
+/* 读一个槽；返回 1 表示读这 16 字节时触发了双 ECC 错误，内容不可信 */
+static uint8_t cfg_read_slot(uint32_t slot, p46_cfg_rec_t *p_rec)
+{
+  const volatile uint32_t *p = (const volatile uint32_t *)(P46_CFG_PAGE_ADDR + (slot * 16U));
+  uint32_t before = s_ecc_hits;
+
+  p_rec->magic = p[0];
+  p_rec->seq   = p[1];
+  p_rec->th    = p[2];
+  p_rec->crc   = p[3];
+  __DSB();
+  __ISB();   /* 让挂起的 NMI 在比较之前被处理 */
+  return (s_ecc_hits != before) ? 1U : 0U;
+}
+
+static uint8_t cfg_rec_is_blank(const p46_cfg_rec_t *p_rec)
+{
+  return ((p_rec->magic & p_rec->seq & p_rec->th & p_rec->crc) == 0xFFFFFFFFUL) ? 1U : 0U;
+}
+
+static uint8_t cfg_rec_is_valid(const p46_cfg_rec_t *p_rec)
+{
+  uint32_t low = p_rec->th & 0xFFFFUL;
+  uint32_t high = p_rec->th >> 16;
+
+  return ((cfg_crc32_mpeg2((const uint8_t *)p_rec, 12U) == p_rec->crc) && (low < high) && (high <= 4095U)) ? 1U : 0U;
+}
+
+int32_t cfg_init(uint16_t *p_low, uint16_t *p_high)
+{
+  p46_cfg_rec_t rec;
+  uint32_t best_seq = 0U;
+  uint32_t best_th = 0U;
+
+  if (HAL_FLASH_Init(&s_flash, HAL_FLASH) != HAL_OK)   /* 默认 16 字节（quad-word）编程 */
+  {
+    return -1;
+  }
+
+  g_cfg_scan = (p46_cfg_scan_t){0};
+  for (uint32_t i = 0U; i < P46_CFG_SLOTS; i++)
+  {
+    if (cfg_read_slot(i, &rec) != 0U)
+    {
+      g_cfg_scan.ecc++;          /* 不可读：不采用，也不当空位 */
+      g_cfg_scan.used++;
+      g_cfg_scan.next_slot = i + 1U;
+      continue;
+    }
+    if (cfg_rec_is_blank(&rec) != 0U)
+    {
+      continue;
+    }
+    g_cfg_scan.used++;
+    g_cfg_scan.next_slot = i + 1U;   /* 只往最后一条非空记录之后写 */
+    if (rec.magic != P46_CFG_MAGIC)
+    {
+      g_cfg_scan.foreign++;      /* 例如 #22/#25 留下的记录 */
+      continue;
+    }
+    if (cfg_rec_is_valid(&rec) == 0U)
+    {
+      g_cfg_scan.bad++;
+      continue;
+    }
+    g_cfg_scan.valid++;
+    if ((s_has_saved == 0U) || (rec.seq > best_seq))
+    {
+      best_seq = rec.seq;
+      best_th = rec.th;
+      s_has_saved = 1U;
+    }
+  }
+  if (s_has_saved == 0U)
+  {
+    *p_low = P46_TH_LOW_DEFAULT;
+    *p_high = P46_TH_HIGH_DEFAULT;
+    return 0;
+  }
+  s_saved_low = (uint16_t)(best_th & 0xFFFFUL);
+  s_saved_high = (uint16_t)(best_th >> 16);
+  g_cfg_scan.last_seq = best_seq;
+  *p_low = s_saved_low;
+  *p_high = s_saved_high;
+  return 1;
+}
+
+uint8_t cfg_is_saved(uint16_t low, uint16_t high)
+{
+  return ((s_has_saved != 0U) && (low == s_saved_low) && (high == s_saved_high)) ? 1U : 0U;
+}
+
+p46_save_t cfg_save(uint16_t low, uint16_t high)
+{
+  p46_cfg_rec_t rec;
+  p46_cfg_rec_t back;
+  uint32_t addr;
+  hal_status_t status;
+
+  if (cfg_is_saved(low, high) != 0U)
+  {
+    return P46_SAVE_SAME;
+  }
+  if (g_cfg_scan.next_slot >= P46_CFG_SLOTS)
+  {
+    return P46_SAVE_FULL;
+  }
+
+  rec.magic = P46_CFG_MAGIC;
+  rec.seq = g_cfg_scan.last_seq + 1U;
+  rec.th = ((uint32_t)high << 16) | low;
+  rec.crc = cfg_crc32_mpeg2((const uint8_t *)&rec, 12U);
+  addr = P46_CFG_PAGE_ADDR + (g_cfg_scan.next_slot * 16U);
+
+  HAL_FLASH_ITF_Unlock(HAL_FLASH);
+  HAL_ICACHE_Stop(mx_icache_gethandle());
+  status = HAL_FLASH_ProgramByAddr(&s_flash, addr, (const uint32_t *)&rec, sizeof(rec), P46_FLASH_TIMEOUT_MS);
+  HAL_ICACHE_Start(mx_icache_gethandle(), HAL_ICACHE_IT_NONE);
+  (void)HAL_ICACHE_Invalidate(mx_icache_gethandle());   /* 读回前丢掉缓存里该页的旧内容 */
+  HAL_FLASH_ITF_Lock(HAL_FLASH);
+
+  /* 不论成败这个槽都可能已被部分写过，下一次从下一个槽开始 */
+  g_cfg_scan.used++;
+  g_cfg_scan.next_slot++;
+  if (status != HAL_OK)
+  {
+    return P46_SAVE_ERR_FLASH;
+  }
+  if ((cfg_read_slot(g_cfg_scan.next_slot - 1U, &back) != 0U) || (back.magic != rec.magic) || (back.seq != rec.seq)
+      || (back.th != rec.th) || (back.crc != rec.crc))
+  {
+    return P46_SAVE_ERR_VERIFY;
+  }
+  g_cfg_scan.valid++;
+  g_cfg_scan.last_seq = rec.seq;
+  s_has_saved = 1U;
+  s_saved_low = low;
+  s_saved_high = high;
+  return P46_SAVE_OK;
+}

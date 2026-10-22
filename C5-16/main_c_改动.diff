@@ -1,0 +1,11 @@
+--- 官方 tim/pwm_input/application/main.c
++++ C5-16 main.c
+@@ -58,7 +58,7 @@
+     while (ExecStatus != EXEC_STATUS_ERROR)
+     {
+       ExecStatus = app_process();
+-      led_on(MX_STATUS_LED);
++      /* C5-16: PA5 (LD1) is now TIM2_CH1, the signal source, so the status LED is no longer driven here */
+     }
+ 
+ 

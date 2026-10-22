@@ -1,0 +1,14 @@
+[
+  {
+    "file": "example.c",
+    "official_path": "examples/hal/i2c/eeprom_dma/application/example.c",
+    "diff": "example_c_改动.diff",
+    "sha256": "67950ad6c49af50af10cd404f6922caa51c906961a392c9f88610ed032003560"
+  },
+  {
+    "file": "flags.cmake",
+    "official_path": "examples/hal/i2c/eeprom_dma/NUCLEO-C542RC/cmake/cmake/flags.cmake",
+    "diff": "flags_cmake_改动.diff",
+    "sha256": "f0935fe9b611a94f9f24a1613246ec4c3ba0ab67decb526aebf9d61f538e5ae4"
+  }
+]

@@ -1,0 +1,20 @@
+[
+  {
+    "file": "example.c",
+    "official_path": "examples/hal/i3c/private_i2c_dma_controller/application/example.c",
+    "diff": "example_c_改动.diff",
+    "sha256": "d6cdea4e693327372a33fa66192910dea330a48828790b41e5a63729802bc798"
+  },
+  {
+    "file": "files.cmake",
+    "official_path": "examples/hal/i3c/private_i2c_dma_controller/NUCLEO-C542RC/cmake/cmake/files.cmake",
+    "diff": "files_cmake_改动.diff",
+    "sha256": "f59da0cf6518ca728e0a5a69b23d29168b94a9da21a909334e103be24f22d416"
+  },
+  {
+    "file": "flags.cmake",
+    "official_path": "examples/hal/i3c/private_i2c_dma_controller/NUCLEO-C542RC/cmake/cmake/flags.cmake",
+    "diff": "flags_cmake_改动.diff",
+    "sha256": "3dfa22638ebd9715c928364b7d40dc3fe48e78f63827489846cda63f07950493"
+  }
+]

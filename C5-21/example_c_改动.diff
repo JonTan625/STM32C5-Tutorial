@@ -1,0 +1,192 @@
+--- official/application/example.c
++++ c5_21/application/example.c
+@@ -14,114 +14,83 @@
+   ******************************************************************************
+   */
+ 
++
+ /* Includes ------------------------------------------------------------------*/
+ #include "example.h"
+ 
+-/* Private typedef -----------------------------------------------------------*/
++/* C5 #21 改写：开机先报复位原因，再启动 1 s 的 IWDG；主循环每 200 ms 喂一次狗。
++ * 按住 B1（PC13）就进入死循环、不再喂狗，约 1 s 后 IWDG 复位，下一次开机会报 IWDG。
++ */
++
+ /* Private define ------------------------------------------------------------*/
+-/* Private macro -------------------------------------------------------------*/
+-/* @user: You can set the number of times that the IWDG will be refreshed before generating the reset */
+-#define PROCESS_LOOP_NUMBER   3
+-#define IWDG_MIN_TIME_VALUE   0
+-#define IWDG_MAX_TIME_VALUE   1000
+-#define IWDG_EWU_TIME_VALUE   0     /* Early wakeup feature not used */
+-
+-#define IWDG_VALID_REFRESH    (IWDG_MAX_TIME_VALUE - (IWDG_MAX_TIME_VALUE / 10))
+-#define IWDG_INVALID_REFRESH  (IWDG_MAX_TIME_VALUE + (IWDG_MAX_TIME_VALUE / 10))
++#define IWDG_MIN_TIME_VALUE   0     /* 不用窗口 */
++#define IWDG_MAX_TIME_VALUE   1000  /* ms，同官方 */
++#define IWDG_EWU_TIME_VALUE   0     /* 不用提前唤醒中断 */
++#define FEED_PERIOD_MS        200U
++#define BUTTON_PORT           HAL_GPIOC
++#define BUTTON_PIN            HAL_GPIO_PIN_13
+ 
+ /* Private variables ---------------------------------------------------------*/
++hal_iwdg_handle_t *pIWDG;  /* pointer referencing the IWDG handle from the generated code */
++uint32_t g_reset_flags;    /* 本次开机读到的 RCC_RSR 复位标志 */
++uint32_t g_iwdg_pr;        /* HAL_IWDG_Start 之后读回的 IWDG_PR */
++uint32_t g_iwdg_rlr;       /* HAL_IWDG_Start 之后读回的 IWDG_RLR */
++uint32_t g_feed_count;     /* 本次开机喂狗次数 */
+ 
+-hal_iwdg_handle_t *pIWDG;  /* pointer referencing the IWDG handle from the generated code */
++/* Private functions prototype -----------------------------------------------*/
++static void print_reset_flags(uint32_t flags);
++static app_status_t button_init(void);
+ 
+-uint8_t IWDG_RestartFromIWDGReset = 0;  /* Flag to know if the device restart due to IWDG reset */
+-/* Private functions prototype -----------------------------------------------*/
+-
+-/** ########## Step 1 ##########
+-  * The init of the IWDG instance is triggered by the applicative code.
+-  * If the device is restarted due to a IWDG reset, the IWDG initialization is bypassed.
+-  */
+ app_status_t app_init(void)
+ {
+-  app_status_t return_status = EXEC_STATUS_ERROR;
++  g_reset_flags = HAL_RCC_GetResetSource();
++  HAL_RCC_ClearResetFlags(); /* 不清的话，下一次复位时旧标志还在，分不清是哪一次 */
++  print_reset_flags(g_reset_flags);
+ 
+-  if ((HAL_RCC_GetResetSource() & MX_RCC_RESET_FLAG_IWDG) == MX_RCC_RESET_FLAG_IWDG)
++  if (button_init() != EXEC_STATUS_OK)
+   {
+-    HAL_RCC_ClearResetFlags();
+-    IWDG_RestartFromIWDGReset = 1;
+-    return_status = EXEC_STATUS_INIT_OK;
+-    goto _app_init_exit;
++    return EXEC_STATUS_ERROR;
+   }
+ 
+-  /** Initialization of the IWDG.
+-    * The IWDG is initialized with the parameters that can be configured by the user through the cube interface.
+-    */
+   pIWDG = mx_example_iwdg_init();
+   if (pIWDG == NULL)
+   {
+-    goto _app_init_exit;
++    return EXEC_STATUS_ERROR;
+   }
+-
+   if (HAL_IWDG_Start(pIWDG, IWDG_MIN_TIME_VALUE, IWDG_MAX_TIME_VALUE, IWDG_EWU_TIME_VALUE) != HAL_OK)
+   {
+-    goto _app_init_exit;
++    return EXEC_STATUS_ERROR;
+   }
+-
+-  PRINTF("[INFO] Step 1: Device initialization COMPLETED.\n");
+-  return_status = EXEC_STATUS_INIT_OK;
+-
+-_app_init_exit:
+-  return return_status;
++  /* HAL_IWDG_Start 返回前已等 PVU/RVU 清零，此时读回的是生效值 */
++  g_iwdg_pr  = IWDG->PR;
++  g_iwdg_rlr = IWDG->RLR;
++  PRINTF("[C5#21] IWDG PR=%" PRIu32 " RLR=%" PRIu32 ", feed every %u ms, hold B1 to stop feeding\n",
++         g_iwdg_pr, g_iwdg_rlr, FEED_PERIOD_MS);
++  return EXEC_STATUS_INIT_OK;
+ } /* end app_init */
+ 
+-
+-/** Checking if the device restarted due to the IWDG. If not, the IWDG reset is triggered on purpose.
+-  */
+ app_status_t app_process(void)
+ {
+-  app_status_t return_status = EXEC_STATUS_ERROR;
+-
+-  if (IWDG_RestartFromIWDGReset == 0U)
++  while (1)
+   {
+-    /* Watchdog has not fired, so the next steps demonstrate how IWDG triggers reset */
+-
+-    /** ########## Step 2 ##########
+-      * The purpose is to refresh the watchdog PROCESS_LOOP_NUMBER times and to prevent watchdog reset.
+-      */
+-    for (uint8_t i = 0; i < PROCESS_LOOP_NUMBER; i++)
++    HAL_Delay(FEED_PERIOD_MS);
++    if (HAL_GPIO_ReadPin(BUTTON_PORT, BUTTON_PIN) == HAL_GPIO_PIN_SET)
+     {
+-      HAL_Delay(IWDG_VALID_REFRESH); /* IWDG refresh delay */
+-
+-      if (HAL_IWDG_Refresh(pIWDG) != HAL_OK)
++      PRINTF("[C5#21] B1 pressed at %" PRIu32 " ms, fed %" PRIu32 " times, now stuck\n",
++             HAL_GetTick(), g_feed_count);
++      while (1)
+       {
+-        goto _app_process_exit;
++        /* 模拟程序跑飞：既不喂狗也不返回 */
+       }
+-
+-      PRINTF("[INFO] Step 2: IWDG refreshed.\n");
+     }
+-
+-    /** ########## Step 3 ##########
+-      * Do not refresh the IWDG to trigger a reset.
+-      */
+-    PRINTF("[INFO] Step 3: IWDG not refreshed on purpose.\n");
+-
+-    HAL_Delay(IWDG_INVALID_REFRESH);
+-    PRINTF("[ERROR] The IWDG is supposed to reset before reaching this stage due to the Step 3.\n");
++    if (HAL_IWDG_Refresh(pIWDG) != HAL_OK)
++    {
++      return EXEC_STATUS_ERROR;
++    }
++    g_feed_count++;
++    led_toggle(MX_STATUS_LED);
+   }
+-  else
+-  {
+-    /* Watchdog has already fired, that means the previous steps (Step1,2,3) have already been executed */
+-
+-    /** ########## Step 4 ##########
+-      * The device is restarted due to IWDG
+-      */
+-    PRINTF("[INFO] Step 4: Device's restart completed due to IWDG.\n");
+-    return_status = EXEC_STATUS_OK;
+-  }
+-
+-_app_process_exit:
+-  return return_status;
+ } /* end app_process */
+-
+ 
+ /** Nothing to do because the IWDG IP cannot be de-initialized.
+   */
+@@ -129,3 +98,29 @@
+ {
+   return EXEC_STATUS_OK;
+ } /* end app_deinit */
++
++static void print_reset_flags(uint32_t flags)
++{
++  PRINTF("[C5#21] reset flags=0x%08" PRIX32 ":", flags);
++  if ((flags & HAL_RCC_RESET_FLAG_PIN) != 0U)  { PRINTF(" PIN"); }
++  if ((flags & HAL_RCC_RESET_FLAG_PWR) != 0U)  { PRINTF(" POR/BOR"); }
++  if ((flags & HAL_RCC_RESET_FLAG_SW) != 0U)   { PRINTF(" SW"); }
++  if ((flags & HAL_RCC_RESET_FLAG_IWDG) != 0U) { PRINTF(" IWDG"); }
++  if ((flags & HAL_RCC_RESET_FLAG_WWDG) != 0U) { PRINTF(" WWDG"); }
++  if ((flags & HAL_RCC_RESET_FLAG_LPWR) != 0U) { PRINTF(" LPWR"); }
++  PRINTF("\n");
++}
++
++static app_status_t button_init(void)
++{
++  hal_gpio_config_t gpio_config;
++
++  HAL_RCC_GPIOC_EnableClock();
++  gpio_config.mode        = HAL_GPIO_MODE_INPUT;
++  gpio_config.pull        = HAL_GPIO_PULL_NO;   /* 板上已有外部下拉（#08） */
++  gpio_config.speed       = HAL_GPIO_SPEED_FREQ_LOW;
++  gpio_config.output_type = HAL_GPIO_OUTPUT_PUSHPULL;
++  gpio_config.alternate   = HAL_GPIO_AF_0;
++  gpio_config.init_state  = HAL_GPIO_PIN_RESET;
++  return (HAL_GPIO_Init(BUTTON_PORT, BUTTON_PIN, &gpio_config) == HAL_OK) ? EXEC_STATUS_OK : EXEC_STATUS_ERROR;
++}

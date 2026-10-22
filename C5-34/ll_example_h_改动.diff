@@ -1,0 +1,59 @@
+--- official/examples/ll/dac/simple_conversion/application/ll_example.h
++++ c5_34/examples/ll/dac/simple_conversion/application/ll_example.h
+@@ -20,6 +20,7 @@
+ 
+ /* Includes ------------------------------------------------------------------*/
+ #include "mx_hal_def.h"       /* aliases to the target-specific generated code */
++#include "stm32c5xx_ll_adc.h" /* C5 #34：ADC1 回读 PA4，LL ADC 为头文件内联接口，无需新增 .c */
+ 
+ #ifdef __cplusplus
+ extern "C" {
+@@ -27,7 +28,9 @@
+ 
+ /* Exported types ------------------------------------------------------------*/
+ /* Exported constants --------------------------------------------------------*/
+-#define DAC_VREFPLUS_VALUE (VDD_VALUE) /* Assumption: pin Vref plus connected to Vdd at board level */
++/* C5 #34：生成层只有 DAC1，ADC1 由应用层自行初始化（配置沿用 #32 官方 ll/adc/multi_channels_dma 的生成层）。 */
++#define MX_ADCx            ADC1
++#define ADC_AVG_COUNT      (16U)  /* 每档回读平均次数 */
+ 
+ /* Exported macros -----------------------------------------------------------*/
+ /* Exported functions ------------------------------------------------------- */
+@@ -38,17 +41,31 @@
+ void DAC_CalibrateChannelBuffer(void);
+ 
+ /** brief:  Start the MX_DACx Channel in polling mode.
++  * retval: 1 when DAC1RDY was seen before time-out, else 0
+   */
+-void DAC_StartChannel(void);
++uint32_t DAC_StartChannel(void);
+ 
+-/** brief:  Get the MX_DACx raw data values of voltages in mV.
+-  * retval: raw data value
++/** brief: Set the MX_DACx 12-bit right-aligned data (C5 #34：官方为 8 位).
+   */
+-uint8_t DAC_GetVoltageRawData(uint16_t dac_voltage_value);
++void DAC_SetChannelData(uint16_t data);
+ 
+-/** brief: Set the MX_DACx data voltage output.
++/** brief: Configure MX_ADCx: PA4 (ADC1_IN4) then VrefInt, software trigger, single sequence.
+   */
+-void DAC_SetChannelData(uint8_t data);
++void ADC_Config(void);
++
++/** brief: Calibrate and enable MX_ADCx.
++  * retval: 1 on success, 0 on time-out
++  */
++uint32_t ADC_CalibrateEnable(void);
++
++/** brief: Run ADC_AVG_COUNT sequences, return the sums of the two ranks.
++  * retval: 0 OK, 1 time-out, 2 overrun
++  */
++uint32_t ADC_ReadSums(uint32_t *p_pa4_sum, uint32_t *p_vrefint_sum);
++
++/** brief: Busy wait based on DWT->CYCCNT (DWT must be enabled first).
++  */
++void DelayUs(uint32_t delay_us);
+ 
+ #ifdef __cplusplus
+ }

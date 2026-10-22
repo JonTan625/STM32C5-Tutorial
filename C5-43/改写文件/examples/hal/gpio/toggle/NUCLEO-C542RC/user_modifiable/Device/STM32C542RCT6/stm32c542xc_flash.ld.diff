@@ -1,0 +1,11 @@
+--- sdk_ref/examples/hal/gpio/toggle/NUCLEO-C542RC/user_modifiable/Device/STM32C542RCT6/stm32c542xc_flash.ld
++++ sdk_mod/examples/hal/gpio/toggle/NUCLEO-C542RC/user_modifiable/Device/STM32C542RCT6/stm32c542xc_flash.ld
+@@ -24,7 +24,7 @@
+ 
+ MEMORY
+ {
+-  ROM (rx) : org = 0x8000000, len = 0x40000
++  ROM (rx) : org = 0x8020000, len = 0x20000
+   RAM (xrw) : org = 0x20000000, len = 0x10000
+ }
+ 

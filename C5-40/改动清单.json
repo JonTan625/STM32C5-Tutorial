@@ -1,0 +1,18 @@
+{
+  "sdk_archive": "STM32C5-MCU-HAL2.1.0_12-08-2026_06-37-21.zip",
+  "sdk_sha256": "7bd849539c665226dcb5b10ab3d0858ce59d79ed51f9ed289357b2ba4435bb8b",
+  "files": [
+    {
+      "relative_path": "examples/hal/fdcan/loopback/application/example.c",
+      "package_file": "example.c",
+      "official_sha256": "5e5d82f509156afe78aae038eeb3db912a4b608c3412d6a470cb9fc67e30e3fa",
+      "teaching_sha256": "5568ba16e1a34e1ee4c3a8fb831925b7509e2312eef840554a8c062d58963a6a"
+    },
+    {
+      "relative_path": "examples/hal/fdcan/loopback/NUCLEO-C542RC/cmake/cmake/flags.cmake",
+      "package_file": "flags.cmake",
+      "official_sha256": "2a3f8e4e5e710150359e9516250aa7ffe28f04117c277efb53487d40c347967b",
+      "teaching_sha256": "22b2c9561573ee50c95fd59322295ae5d9c22b2583567da286bbb495f3f5ae50"
+    }
+  ]
+}

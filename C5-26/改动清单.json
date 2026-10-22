@@ -1,0 +1,30 @@
+[
+  {
+    "program": "crc",
+    "official_path": "examples/hal/crc/default/application/example.c",
+    "package_path": "crc/example.c",
+    "diff": "crc/example_c_改动.diff",
+    "sha256": "ea23986013c2abea7f846bfabe3c99e8471fce0e5eea00c3678ea14c1f29f516"
+  },
+  {
+    "program": "crc",
+    "official_path": "examples/hal/crc/default/NUCLEO-C542RC/cmake/cmake/flags.cmake",
+    "package_path": "crc/flags.cmake",
+    "diff": "crc/flags_cmake_改动.diff",
+    "sha256": "f0935fe9b611a94f9f24a1613246ec4c3ba0ab67decb526aebf9d61f538e5ae4"
+  },
+  {
+    "program": "rng",
+    "official_path": "examples/hal/rng/candidate_nist_config/application/example.c",
+    "package_path": "rng/example.c",
+    "diff": "rng/example_c_改动.diff",
+    "sha256": "71288380ecf88cf8d5299dfeb9f28e35d808087577001401f3967e3b79e191b4"
+  },
+  {
+    "program": "rng",
+    "official_path": "examples/hal/rng/candidate_nist_config/NUCLEO-C542RC/cmake/cmake/flags.cmake",
+    "package_path": "rng/flags.cmake",
+    "diff": "rng/flags_cmake_改动.diff",
+    "sha256": "f0935fe9b611a94f9f24a1613246ec4c3ba0ab67decb526aebf9d61f538e5ae4"
+  }
+]
